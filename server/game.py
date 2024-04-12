@@ -11,14 +11,11 @@ class Game:
         self.deal_method = "fours"
         self.trump_length = 0  # Length of the longest trump suit declared
         self.trump_suit = None  # Suit of the declared trump
+        self.trump_owner = None
         self.declaration_count = 1
 
     def handle_trump_declaration(self, command, player_id):
 
-        if self.declaration_count >= self.nPlayers:
-            for id in self.players:
-                self.updatesForPlayers[id].append("Declarations complete, no further declarations allowed")
-            return " "
         parts = command.split()
         declaration = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
         if player_id != self.current_turn:
@@ -26,6 +23,8 @@ class Game:
 
         current_player = self.players[player_id]
         maxmeld = self.players[player_id].find_highest_trump_declaration()
+        print(maxmeld)
+        print('Clubs' in maxmeld)
         if declaration == 0:
             response = f"{current_player.name} passes."
             self.declaration_count += 1
@@ -35,6 +34,7 @@ class Game:
                 response += ' Better'
                 self.trump_suit = 'Clubs'
             self.trump_length = declaration
+            self.trump_owner = current_player
             self.declaration_count += 1
         else:
             return "Invalid declaration"
@@ -43,10 +43,18 @@ class Game:
         for id in self.players:
             self.updatesForPlayers[id].append(response)
 
+
+
         # Move to the next player
         self.current_turn = (self.current_turn % self.nPlayers) + 1
-        next_player = self.players[self.current_turn]
-        self.updatesForPlayers[self.current_turn].append(f"{next_player.name}'s turn to declare.")
+
+        if self.declaration_count > self.nPlayers:
+            self.current_turn = 0
+            for id in self.players:
+                self.updatesForPlayers[id].append(f"Declarations complete. {self.trump_owner.name} has the highest declaration.")
+            self.updatesForPlayers[self.trump_owner.id].append("What suit is your declaration?")
+            return " "
+        self.updatesForPlayers[self.current_turn].append(f"{self.players[self.current_turn].name}'s turn to declare.")
 
         return " "
         
@@ -79,11 +87,9 @@ class Game:
             self.updatesForPlayers[player_id].append(f"Received {cards_per_player} cards.")
 
     def ask_for_split_or_banka(self, player_id):
-        """Ask the specified player to split the deck or choose 'banka'."""
         self.updatesForPlayers[player_id].append("Choose 'split <position>' or 'banka'")
 
     def process_command(self, command):
-        """ Process a command sent by a client. """
         # Example command processing logic
         print(command)
         if command.startswith('Hallo'):
@@ -91,7 +97,7 @@ class Game:
                 return "full"
             else:
                 self.nPlayers += 1
-                self.players[self.nPlayers] = Player(command[14:])   # Add the player to the dictionary
+                self.players[self.nPlayers] = Player(command[14:], self.nPlayers)   # Add the player to the dictionary
                 self.updatesForPlayers[self.nPlayers] = []  # Initialize player's update list
                 if self.nPlayers == 4:
                     self.setup_game()
@@ -123,6 +129,16 @@ class Game:
                 for id in self.players:
                     self.updatesForPlayers[id].append(response)
                 return " "
+            elif command.startswith("S "):
+                suit = command.split(' ')[1]
+                if (suit in self.players[player_id].find_highest_trump_declaration()) and (suit in "HeartsClubsDiamondsSpades"):
+                    self.trump_suit = suit
+                    for id in self.players:
+                        self.updatesForPlayers[id].append(f"The current trump is {suit}")
+                    return " "
+                else:
+                    return "Invalid suit"
+
             elif command.startswith("Say"):
                 for id in self.players:
                     self.updatesForPlayers[id].append(f"{self.players[player_id].name} says:{command[3:]}")

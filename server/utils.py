@@ -42,8 +42,9 @@ class Deck:
             raise ValueError("Invalid cut index")
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, id=None):
         self.name = name
+        self.id = id
         self.hand = []
         self.last_update_time = time.time()
 

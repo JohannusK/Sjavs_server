@@ -25,6 +25,7 @@ def client_thread(conn, addr, game):
     finally:
         conn.close()
 
+
 def start_server(host='127.0.0.1', port=65432):
     """
     Initialize the server, bind it to a host and port, and listen for incoming connections.
@@ -51,4 +52,4 @@ def start_server(host='127.0.0.1', port=65432):
 
 
 if __name__ == '__main__':
-    start_server()
+    start_server(HOST, PORT)
