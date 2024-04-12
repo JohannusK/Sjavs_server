@@ -113,15 +113,16 @@ class Game:
                 split_position = int(command.split()[-1])
                 response = ""
                 if 10 <= split_position <= 22:
-                    self.split_deck(split_position)
+                    self.deck.cut(split_position)
                     self.deal_method = "fours"
                     self.deal_cards()
-
                     response += "Deck split and cards dealt in fours"
                 else:
-                    response +=  "Invalid split position, try again"
-                response += f"{self.players[self.current_turn].name} hvat meldar tú?"
-                self.updatesForPlayers[self.current_turn].append(response)
+                    return "Invalid split position, try again"
+                self.updatesForPlayers[self.current_turn].append(f"{self.players[self.current_turn].name} hvat meldar tú?")
+                for id in self.players:
+                    self.updatesForPlayers[id].append(response)
+                return " "
             elif command.startswith("Say"):
                 for id in self.players:
                     self.updatesForPlayers[id].append(f"{self.players[player_id].name} says:{command[3:]}")

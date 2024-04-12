@@ -35,6 +35,12 @@ class Deck:
         else:
             raise ValueError("All cards have been dealt")
 
+    def cut(self, cut_index):
+        if 0 <= cut_index < len(self.cards):
+            self.cards = self.cards[cut_index:] + self.cards[:cut_index]
+        else:
+            raise ValueError("Invalid cut index")
+
 class Player:
     def __init__(self, name):
         self.name = name
