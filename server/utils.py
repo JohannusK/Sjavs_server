@@ -8,12 +8,27 @@ class Table:
         self.cardOwners: list[Player] = []
         self.firstCard: Card = None
         self.trump = trump
-        self.vit_cards: list = []
-        self.tit_cards: list = []
+        self.team_piles: dict[str, list] = {'vit': [], 'tit': []}
 
     def clear_and_reset(self) -> int:
         # returns player id (1-4)
-        return 1
+        vinnari = max(
+            (x1, x2, x3, x4, x5)
+            for x1, x2, x3, x4, x5 in zip(
+                [-1 if x not in x.TRUMPS else x.TRUMPS.index(x) for x in self.cards],
+                [x.is_trump(self.trump) for x in self.cards],
+                [x.is_suit(self.firstCard, self.trump) for x in self.cards],
+                [14 if x.value==1 else x.value for x in self.cards],
+                [x.id for x in self.cardOwners]
+            )
+        )[-1]
+        team = ['tit', 'vit'][vinnari%2]
+        self.team_piles[team].extend(self.cards)
+        self.cards = []
+        self.cardOwners = []
+        self.firstCard = None
+
+        return vinnari
 
     def play_first_card(self, card, player) -> str:
         ok_card = take_card(player, card)
@@ -30,7 +45,7 @@ class Table:
         if ok_card:
             if (ok_card.is_suit(self.firstCard, self.trump) or
                     (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
-                self.cards.append(card)
+                self.cards.append(ok_card)
                 self.cardOwners.append(player)
                 if len(self.cards) == 4:
                     #TODO ger klárt at til fyrsta útspal og finn hvør vann o.s.fr.
@@ -67,7 +82,7 @@ class Card:
         'Clubs':'C',
     }
 
-    TRUMPS = {'JD', 'JH', 'JS', 'JC', 'QS', 'QC'}
+    TRUMPS = ['JD', 'JH', 'JS', 'JC', 'QS', 'QC']
 
     def __init__(self, suit, value):
         self.suit = suit
@@ -84,15 +99,15 @@ class Card:
 
     def is_trump(self, trump) -> bool:
         trump = trump[0]
-        return (self.short_name()[1]==trump) or (self.short_name in self.TRUMPS)
+        return (self.short_name()[1]==trump) or (self.short_name() in self.TRUMPS)
 
     def is_suit(self, first_card, trump:str) -> bool:
         trump = trump[0]
         
         if first_card.is_trump(trump):
-            return self.is_trump()
+            return self.is_trump(trump)
         
-        return (self.suit == first_card.suit) and (self.short_name not in self.TRUMPS)
+        return (self.suit == first_card.suit) and (self.short_name() not in self.TRUMPS)
 
     def __eq__(self, other):
         if type(other) == Card:
