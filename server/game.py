@@ -44,7 +44,7 @@ class Game:
             response = f"{current_player.name} passes."
             self.declaration_count += 1
         elif (
-            (declaration > self.trump_length)
+            (5 <= declaration > self.trump_length)
             or ((declaration == self.trump_length) and ("Clubs" in maxmeld))
             and int(maxmeld.split(" ")[0]) == declaration
         ):
@@ -233,8 +233,7 @@ class Game:
             return:
                  "Unknown command."
         """
-        # Example command processing logic
-        print(command)
+        #print(command)
         if command.startswith("Hallo"):
             if self.nPlayers >= 4:
                 return "full"
@@ -278,9 +277,16 @@ class Game:
                 else:
                     #Do legal stuff
                     pass
+            elif command.startswith('IPython'):
+                import IPython
+                IPython.embed()
+                exit()
             elif command.startswith("S "):
                 suit = command[2]
-                if ((suit in self.players[player_id].find_highest_trump_declaration()[1])
+                print(self.players[player_id].find_highest_trump_declaration(), "HAllo")
+                print(self.players[player_id].find_highest_trump_declaration()[1:])
+                print((suit in self.players[player_id].find_highest_trump_declaration()[1:]))
+                if ((suit in self.players[player_id].find_highest_trump_declaration()[1:])
                         and (self.current_turn == player_id)):
                     self.trump_suit = suit
                     self.broadcast_players(f"The current trump is {suit}")
@@ -290,6 +296,32 @@ class Game:
                     return " "
                 else:
                     return "Invalid suit"
+            elif command.startswith("P"):
+                card = command.split(" ")[1]
+                if self.current_turn == player_id:
+                    if self.state == "first_card":
+                        tmp = self.table.play_first_card(card, self.players[player_id])
+                        if tmp == "OK":
+                            self.broadcast_players(f"Player {self.players[player_id]} has played {card}")
+                            self.state = "play"
+                            self.current_turn = ((self.current_turn + 1) % 4) or 4
+                        return tmp
+                    elif self.state == "play":
+                        tmp = self.table.play_other_card(card, self.players[player_id])
+                        if tmp == "OK":
+                            self.broadcast_players(f"Player {self.players[player_id]} has played {card}")
+                            if len(self.table.cards) == 4:
+                                print("Do stuff")
+                                self.broadcast_players(f"Onkur vann")
+                            else:
+                                self.current_turn = ((self.current_turn + 1) % 4) or 4
+                        return tmp
+                    else:
+                        return "Okkurt er galið"
+
+                else:
+                    return "Not your turn"
+
             elif command.startswith("split"):
                 # Here, the deck is split and dealt in fours
                 try:

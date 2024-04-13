@@ -8,16 +8,22 @@ class Table:
         self.cardOwners: list[Player] = []
         self.firstCard: Card = None
         self.trump = trump
-        self.vit_deck = Deck ()
+        self.vit_cards: list = []
+        self.tit_cards: list = []
+
+    def clear_and_reset(self) -> int:
+        # returns player id (1-4)
+        return 1
 
     def play_first_card(self, card, player) -> str:
         ok_card = take_card(player, card)
         if ok_card:
             self.cards.append(ok_card)
             self.firstCard = ok_card
+            self.cardOwners.append(player)
             return "Ok"
         else:
-            return "Ikki loyvt!"
+            return "Tú hevur ikki kortið!"
 
     def play_other_card(self, card, player) -> str:
         ok_card = take_card(player, card)
@@ -26,11 +32,17 @@ class Table:
             if (ok_card.is_suit(self.firstCard, self.trump) or
                     (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
                 self.cards.append(card)
-                return 0
+                self.cardOwners.append(player)
+                if len(self.cards) == 4:
+                    #TODO ger klárt at til fyrsta útspal og finn hvør vann o.s.fr.
+                    return f"Last card\n" + ' '.join([str(x) for x in self.cards])
+                else:
+                    return "OK"
             else:
+                player.hand.append(ok_card)
                 return "Ikki loyvt!"
         else:
-            return "Ikki loyvt"
+            return "Tú hevur ikki kortið"
 
 
 class Card:
@@ -49,10 +61,10 @@ class Card:
         12:"Q",
         13:"K"
     }
-    short_sutes = {
+    short_suites = {
         'Diamonds':'D',
         'Hearts':'H',
-        'Spades':'S'
+        'Spades':'S',
         'Clubs':'C',
     }
 
@@ -63,7 +75,7 @@ class Card:
         self.value = value
 
     def short_name(self):
-        return f'{self.short_value[self.value]}{self.short_sutes[self.value]}'
+        return f"{self.short_value[self.value]}{self.short_suites[self.suit]}"
 
     def long_name(self):
         value_names = {1: "Ace", 11: "Jack", 12: "Queen", 13: "King"}
@@ -73,16 +85,15 @@ class Card:
 
     def is_trump(self, trump) -> bool:
         trump = trump[0]
-        return (self.short_name()[1]==trump) or (self.short_name in TRUMPS)
+        return (self.short_name()[1]==trump) or (self.short_name in self.TRUMPS)
 
-    def is_suit(self, first_card:Card, trump:str) -> bool:
+    def is_suit(self, first_card, trump:str) -> bool:
         trump = trump[0]
         
         if first_card.is_trump(trump):
             return self.is_trump()
         
-        return (self.suit == first_card.suit) and (self.short_name not in TRUMPS)
-
+        return (self.suit == first_card.suit) and (self.short_name not in self.TRUMPS)
 
     def __eq__(self, other):
         if type(other) == Card:
@@ -92,8 +103,7 @@ class Card:
         return False
 
     def __str__(self):
-        return self.short_name
-
+        return self.short_name()
 
     def __repr__(self):
         return self.__str__()
@@ -147,12 +157,9 @@ class Player:
         for card in normal_cards:
             suit_counts[card.suit] += 1
 
-        print(suit_counts)
         for suit in suit_counts:
             suit_counts[suit] += high_trumps_count
-        print(suit_counts)
         longest_length = max(suit_counts.values())
-        print(longest_length)
         if longest_length < 5:
             return "Pass"  # If no suit has 5 or more cards including high trumps
         longest_suits = [suit for suit, count in suit_counts.items() if count == longest_length]
