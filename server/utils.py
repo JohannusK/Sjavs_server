@@ -21,14 +21,13 @@ class Table:
             self.cards.append(ok_card)
             self.firstCard = ok_card
             self.cardOwners.append(player)
-            return "Ok"
+            return "OK"
         else:
             return "Tú hevur ikki kortið!"
 
     def play_other_card(self, card, player) -> str:
         ok_card = take_card(player, card)
         if ok_card:
-            player.hasSuit(self.firstCard.suit)
             if (ok_card.is_suit(self.firstCard, self.trump) or
                     (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
                 self.cards.append(card)

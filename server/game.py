@@ -79,7 +79,7 @@ class Game:
 
         return " "
 
-    def get_state(self, info: bool) -> str:
+    def get_state(self, info: bool = False) -> str:
         if not info:
             return self.state
         return (
@@ -111,8 +111,7 @@ class Game:
             return f"vit eru í {self.stage=}"
 
         if self.current_turn != player_id:
-            print(self.current_turn)
-            return "tad er ikki tín túrur"
+            return self.get_state()
 
         if (_type == "split") and (10 <= split_position <= 22):
             self.deck.cut(split_position)
@@ -264,6 +263,7 @@ class Game:
                     return f"Current Players:\n{player_list}"
 
             elif command.startswith("state"):
+                print(self.state)
                 # TODO implement
                 return "Not Implemented"
             elif command == "maxmeld":
@@ -299,14 +299,15 @@ class Game:
                     if self.state == "first_card":
                         tmp = self.table.play_first_card(card, self.players[player_id])
                         if tmp == "OK":
-                            self.broadcast_players(f"Player {self.players[player_id]} has played {card}")
+                            self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
                             self.state = "play"
                             self.current_turn = ((self.current_turn + 1) % 4) or 4
+                            self.updatesForPlayers[self.current_turn].append("Your turn!")
                         return tmp
                     elif self.state == "play":
                         tmp = self.table.play_other_card(card, self.players[player_id])
                         if tmp == "OK":
-                            self.broadcast_players(f"Player {self.players[player_id]} has played {card}")
+                            self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
                             if len(self.table.cards) == 4:
                                 print("Do stuff")
                                 self.broadcast_players(f"Onkur vann")
