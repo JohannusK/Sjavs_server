@@ -90,6 +90,85 @@ class Game:
         self.updatesForPlayers[player_id].append("Choose 'split <position>' or 'banka'")
 
     def process_command(self, command):
+        '''
+        ```init
+        `Hallo, Eg eri {myname}`
+            docs:
+                registrer a new player with name {myname}
+            return:
+                full: there is no empty space for you
+                P{player_id}: you are registrerd as player number {player_id}
+        ```
+
+        #Player commands
+        all player commands start `P{player_id}`
+        example:
+            `P1 list players`
+
+        ##subcommands:
+        
+        `list players`:
+            lists all the players
+
+        `maxmeld`:
+            finds your longest suits
+            returns f"{longest_length} in {' and '.join(longest_suits)}"
+        `M {n}`:
+            declare a trump lenght of {n}
+            return:
+                " ": all good
+                "Not your turn": Not your turn
+                "Invalid declaration": Invalid declaration
+        `S {sute}`:
+            declaration of suit
+            return:
+                " ": all good
+                "Invalid suit"
+
+        `split {n}`
+            split the deck and start dealing
+            return:
+                " ": all good
+                "Invalid split position, try again"
+
+        `banka`:
+            deale the cards
+            return:
+                " ": all good
+
+        `say ? ? {message}`:
+            brodcast a message to all players
+            return:
+                " ": all good
+
+        `GU`:
+            heart beat, sends updates to player
+            return:
+                "No new updates."
+                "Player not found."
+        `show`:
+            get the hand of the player
+            return:
+                the hand
+
+        `deal`:
+            deales cards
+            TODO WTF is this
+            return:
+                " ": all good
+
+        `quit`:
+            sets a boolinan to True
+            return:
+                "Game over."
+
+        `start game`:
+            I dont even
+
+default:
+    return:
+         "Unknown command."
+        '''
         # Example command processing logic
         print(command)
         if command.startswith('Hallo'):
@@ -114,6 +193,15 @@ class Game:
                 return str(self.players[player_id].find_highest_trump_declaration())
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
+            elif command.startswith("S "):
+                suit = command.split(' ')[1]
+                if (suit in self.players[player_id].find_highest_trump_declaration()) and (suit in ["Hearts", "Clubs", "Diamonds", "Spades"]):
+                    self.trump_suit = suit
+                    for id in self.players:
+                        self.updatesForPlayers[id].append(f"The current trump is {suit}")
+                    return " "
+                else:
+                    return "Invalid suit"
             elif command.startswith("split"):
                 # Here, the deck is split and dealt in fours
                 split_position = int(command.split()[-1])
@@ -129,20 +217,6 @@ class Game:
                 for id in self.players:
                     self.updatesForPlayers[id].append(response)
                 return " "
-            elif command.startswith("S "):
-                suit = command.split(' ')[1]
-                if (suit in self.players[player_id].find_highest_trump_declaration()) and (suit in "HeartsClubsDiamondsSpades"):
-                    self.trump_suit = suit
-                    for id in self.players:
-                        self.updatesForPlayers[id].append(f"The current trump is {suit}")
-                    return " "
-                else:
-                    return "Invalid suit"
-
-            elif command.startswith("Say"):
-                for id in self.players:
-                    self.updatesForPlayers[id].append(f"{self.players[player_id].name} says:{command[3:]}")
-                return " "
             elif command.startswith("banka"):
                 # If 'banka', the deck remains unchanged and dealt in eights
                 self.deal_method = "eights"
@@ -151,16 +225,11 @@ class Game:
                     self.updatesForPlayers[id].append(f"Deck unchanged and cards dealt in eights. ")
                 self.updatesForPlayers[self.current_turn].append(f"{ self.players[self.current_turn].name} hvat meldar tú?")
                 return " "
+            elif command.startswith("Say"):
+                for id in self.players:
+                    self.updatesForPlayers[id].append(f"{self.players[player_id].name} says:{command[3:]}")
+                return " "
 
-            elif command.startswith('deal'):
-                num_cards = int(command.split(' ')[-1])
-                for player_id, player in self.players.items():
-                    player.draw(self.deck, num_cards)  # Assuming draw method can handle the deck directly
-                    self.updatesForPlayers[player_id].append(f"{num_cards} cards dealt to {player.name}")
-                return "Dealt cards to each player."
-            elif command == 'quit':
-                self.game_over = True
-                return "Game over."
             elif command.startswith("GU"):
                 player_id = int(command[2:])
                 player = self.players.get(player_id)
@@ -177,8 +246,19 @@ class Game:
 
                 return self.players.get(player_id).show_hand()
 
+            elif command.startswith('deal'):
+                num_cards = int(command.split(' ')[-1])
+                for player_id, player in self.players.items():
+                    player.draw(self.deck, num_cards)  # Assuming draw method can handle the deck directly
+                    self.updatesForPlayers[player_id].append(f"{num_cards} cards dealt to {player.name}")
+                return "Dealt cards to each player."
+
+            elif command == 'quit':
+                self.game_over = True
+                return "Game over."
+
             elif command == 'start game':
                 if self.nPlayers == 2:
 
-                    return
+                    return " "
             return "Unknown command."
