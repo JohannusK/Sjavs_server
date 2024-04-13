@@ -54,6 +54,11 @@ class Table:
         else:
             return "Tú hevur ikki kortið"
 
+    def sum_cards_list(self, key):
+
+        values = {1:11, 10:10, 11:2, 12:3, 13:4}
+        return sum(values.get(x.value, 0) for x in self.team_piles[key])
+
 
 class Card:
     short_value = {
