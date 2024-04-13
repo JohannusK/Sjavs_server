@@ -50,11 +50,14 @@ class Card:
         13:"K"
     }
     short_sutes = {
-        'Hearts':'H',
-        'Clubs':'C',
         'Diamonds':'D',
+        'Hearts':'H',
         'Spades':'S'
+        'Clubs':'C',
     }
+
+    TRUMPS = {'JD', 'JH', 'JS', 'JC', 'QS', 'QC'}
+
     def __init__(self, suit, value):
         self.suit = suit
         self.value = value
@@ -67,6 +70,19 @@ class Card:
         # Using a dictionary to map values for readability and compactness
         val = value_names.get(self.value, self.value)
         return f"{val} of {self.suit}"
+
+    def is_trump(self, trump) -> bool:
+        trump = trump[0]
+        return (self.short_name()[1]==trump) or (self.short_name in TRUMPS)
+
+    def is_suit(self, first_card:Card, trump:str) -> bool:
+        trump = trump[0]
+        
+        if first_card.is_trump(trump):
+            return self.is_trump()
+        
+        return (self.suit == first_card.suit) and (self.short_name not in TRUMPS)
+
 
     def __eq__(self, other):
         if type(other) == Card:
