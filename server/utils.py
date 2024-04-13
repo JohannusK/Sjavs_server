@@ -1,15 +1,50 @@
 import random
 import time
 class Card:
+    short_value = {
+        1:"A",
+        2:"2",
+        3:"3",
+        4:"4",
+        5:"5",
+        6:"6",
+        7:"7",
+        8:"8",
+        9:"9",
+        10:'T',
+        11:"J",
+        12:"Q",
+        13:"K"
+    }
+    short_sutes = {
+        'Hearts':'H',
+        'Clubs':'C',
+        'Diamonds':'D',
+        'Spades':'S'
+    }
     def __init__(self, suit, value):
         self.suit = suit
         self.value = value
 
-    def __str__(self):
+    def short_name(self):
+        return f'{self.short_value[self.value]}{self.short_sutes[self.value]}'
+
+    def long_name(self):
         value_names = {1: "Ace", 11: "Jack", 12: "Queen", 13: "King"}
         # Using a dictionary to map values for readability and compactness
         val = value_names.get(self.value, self.value)
         return f"{val} of {self.suit}"
+
+    def __eq__(self, other):
+        if type(other) == Card:
+            return (self.value == other.value) and (self.suit == other.suit)
+        elif type(other) == str:
+            return self.short_name() == other
+        return False
+
+    def __str__(self):
+        return self.short_name
+
 
     def __repr__(self):
         return self.__str__()
