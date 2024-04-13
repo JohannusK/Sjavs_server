@@ -1,5 +1,40 @@
 import random
 import time
+
+
+
+
+class Table:
+    def __init__(self, trump):
+        self.cards: list[Card] = []
+        self.cardOwners: list[Player] = []
+        self.firstCard: Card = None
+        self.trump = trump
+        self.vit_deck = Deck ()
+
+    def play_first_card(self, card, player) -> str:
+        ok_card = take_card(player, card)
+        if ok_card:
+            self.cards.append(ok_card)
+            self.firstCard = ok_card
+            return "Ok"
+        else:
+            return "Ikki loyvt!"
+
+    def play_other_card(self, card, player) -> str:
+        ok_card = take_card(player, card)
+        if ok_card:
+            player.hasSuit(self.firstCard.suit)
+            if ((ok_card.is_suit(self.firstCard, self.trump)) or
+                    (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand])) or (card.suit == self.trump)):
+                self.cards.append(card)
+                return 0
+            else:
+                return "Ikki loyvt!"
+        else:
+            return "Ikki loyvt"
+
+
 class Card:
     def __init__(self, suit, value):
         self.suit = suit
@@ -112,3 +147,11 @@ class Player:
             return self.hand.pop()
         print("No cards left to discard.")
         return None
+
+
+def take_card(player, card) -> Card | int:
+    try:
+        card_loc = player.hand.index(card)
+    except ValueError:
+        return 0
+    return player.hand.pop(card_loc)

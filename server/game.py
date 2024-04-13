@@ -1,11 +1,13 @@
-from utils import Deck, Card, Player
+from utils import Deck, Card, Player, Table
 
 
 class Game:
     def __init__(self) -> None:
         self.deck: Deck = Deck()
+        self.table: Table | None = None
+
         self.nPlayers: int = 0
-        self.teamp: dict[int, list[int]] = {1: [1, 3], 2: [2, 4]}
+        self.teamp: dict[str, list[int]] = {"Vit": [1, 3], "Tit": [2, 4]}
         self.STATES: list[str] = [
             "init",
             "deal",
@@ -269,13 +271,22 @@ class Game:
                 return str(self.players[player_id].find_highest_trump_declaration())
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
+            elif command.startswith("P "):
+                if (self.current_turn == player_id) and self.state == "first":
+                    #Do stuff
+                    pass
+                else:
+                    #Do legal stuff
+                    pass
             elif command.startswith("S "):
-                suit = command.split(" ")[1]
-                if (
-                    suit in self.players[player_id].find_highest_trump_declaration()
-                ) and (suit in ["Hearts", "Clubs", "Diamonds", "Spades"]):
+                suit = command[2]
+                if ((suit in self.players[player_id].find_highest_trump_declaration()[1])
+                        and (self.current_turn == player_id)):
                     self.trump_suit = suit
                     self.broadcast_players(f"The current trump is {suit}")
+                    self.table = Table(suit)
+                    self.state = "first_card"
+                    self.updatesForPlayers[self.current_turn].append("Play a card")
                     return " "
                 else:
                     return "Invalid suit"
