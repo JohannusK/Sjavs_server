@@ -84,7 +84,7 @@ class Card:
 
     def is_trump(self, trump) -> bool:
         trump = trump[0]
-        return (self.short_name()[1]==trump) or (self.short_name in self.TRUMPS)
+        return (self.short_name()[1]==trump) or (self.short_name() in self.TRUMPS)
 
     def is_suit(self, first_card, trump:str) -> bool:
         trump = trump[0]
@@ -92,7 +92,7 @@ class Card:
         if first_card.is_trump(trump):
             return self.is_trump()
         
-        return (self.suit == first_card.suit) and (self.short_name not in self.TRUMPS)
+        return (self.suit == first_card.suit) and (self.short_name() not in self.TRUMPS)
 
     def __eq__(self, other):
         if type(other) == Card:
@@ -147,7 +147,6 @@ class Player:
         for card in self.hand:
             if (card.value == 12 and card.suit in ['Clubs', 'Spades']) or (card.value == 11):
                 high_trumps_count += 1
-                print('Trump ' + str(card.value) + ' ' + card.suit)
             else:
                 normal_cards.append(card)
         suit_counts = {'Hearts': 0, 'Clubs': 0, 'Diamonds': 0, 'Spades': 0}
@@ -158,7 +157,7 @@ class Player:
             suit_counts[suit] += high_trumps_count
         longest_length = max(suit_counts.values())
         if longest_length < 5:
-            return "Pass"  # If no suit has 5 or more cards including high trumps
+            return "0"  # If no suit has 5 or more cards including high trumps
         longest_suits = [suit for suit, count in suit_counts.items() if count == longest_length]
 
         return str(longest_length) + ''.join([x[0] for x in longest_suits])

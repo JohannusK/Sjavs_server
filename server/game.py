@@ -268,6 +268,13 @@ class Game:
                 return "Not Implemented"
             elif command == "maxmeld":
                 return str(self.players[player_id].find_highest_trump_declaration())
+            elif command.startswith("MAuto"):
+                for i in [2, 3, 4, 1]:
+                    tmp = self.players[player_id].find_highest_trump_declaration()
+                    fart = self.handle_trump_declaration("M " + tmp[0], i)
+                    if fart == "Invalid declaration":
+                        self.handle_trump_declaration("M 0", i)
+
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
             elif command.startswith('IPython'):
@@ -308,11 +315,13 @@ class Game:
                         tmp = self.table.play_other_card(card, self.players[player_id])
                         if tmp == "OK":
                             self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
+                            print(len(self.table.cards))
                             if len(self.table.cards) == 4:
                                 print("Do stuff")
                                 self.broadcast_players(f"Onkur vann")
                             else:
                                 self.current_turn = ((self.current_turn + 1) % 4) or 4
+                                self.updatesForPlayers[self.current_turn].append("Your turn!")
                         return tmp
                     else:
                         return "Okkurt er galið"
