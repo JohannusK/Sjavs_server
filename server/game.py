@@ -39,7 +39,7 @@ class Game:
         current_player = self.players[player_id]
         maxmeld = self.players[player_id].find_highest_trump_declaration()
         print(maxmeld)
-        print("Clubs" in maxmeld)
+        print("C" in maxmeld)
         if declaration == 0:
             response = f"{current_player.name} passes."
             self.declaration_count += 1
@@ -65,7 +65,7 @@ class Game:
         self.current_turn = (self.current_turn % self.nPlayers) + 1
 
         if self.declaration_count > self.nPlayers:
-            self.current_turn = 0
+            self.current_turn = self.trump_owner.id
             self.broadcast_players(
                 f"Declarations complete. {self.trump_owner.name} has the highest declaration."
             )
@@ -270,21 +270,17 @@ class Game:
                 return str(self.players[player_id].find_highest_trump_declaration())
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
-            elif command.startswith("P "):
-                if (self.current_turn == player_id) and self.state == "first":
-                    #Do stuff
-                    pass
-                else:
-                    #Do legal stuff
-                    pass
             elif command.startswith('IPython'):
                 import IPython
                 IPython.embed()
                 exit()
             elif command.startswith("S "):
                 suit = command[2]
-                print(self.players[player_id].find_highest_trump_declaration(), "HAllo")
+                print("Hjálp")
+                print(suit)
+                print(self.players[player_id].find_highest_trump_declaration())
                 print(self.players[player_id].find_highest_trump_declaration()[1:])
+
                 print((suit in self.players[player_id].find_highest_trump_declaration()[1:]))
                 if ((suit in self.players[player_id].find_highest_trump_declaration()[1:])
                         and (self.current_turn == player_id)):
@@ -292,11 +288,12 @@ class Game:
                     self.broadcast_players(f"The current trump is {suit}")
                     self.table = Table(suit)
                     self.state = "first_card"
+                    self.current_turn = ((self.dealer_position + 1) % 4) or 4
                     self.updatesForPlayers[self.current_turn].append("Play a card")
                     return " "
                 else:
                     return "Invalid suit"
-            elif command.startswith("P"):
+            elif command.startswith("P "):
                 card = command.split(" ")[1]
                 if self.current_turn == player_id:
                     if self.state == "first_card":

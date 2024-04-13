@@ -146,8 +146,6 @@ class Player:
         high_trumps_count = 0
         normal_cards = []
         for card in self.hand:
-            print(card.value)
-            print(card.suit)
             if (card.value == 12 and card.suit in ['Clubs', 'Spades']) or (card.value == 11):
                 high_trumps_count += 1
                 print('Trump ' + str(card.value) + ' ' + card.suit)
