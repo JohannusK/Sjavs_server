@@ -3,7 +3,7 @@ from utils import Deck, Card, Player, Table
 
 class Game:
     def __init__(self) -> None:
-        self.deck: Deck = Deck()
+        self.deck: Deck | None = None
         self.table: Table | None = None
 
         self.nPlayers: int = 0
@@ -89,12 +89,10 @@ class Game:
         )
 
     def setup_game(self) -> None:
+        self.deck = Deck()
         self.deck.shuffle()
         self.state = "deal"
-        if self.dealer_position == 1:
-            self.ask_for_split_or_banka(4)
-        else:
-            self.ask_for_split_or_banka(self.dealer_position - 1)
+        self.ask_for_split_or_banka(((self.dealer_position - 1) % 4 ) or 4)
         self.game_over = False
 
     def deal_cards(self, player_id: int, _type: str, split_position: int = 0) -> None:
@@ -314,8 +312,18 @@ class Game:
                             self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
                             print(len(self.table.cards))
                             if len(self.table.cards) == 4:
-                                print("Do stuff")
-                                self.broadcast_players(f"Onkur vann")
+                                vinnari = self.table.clear_and_reset()
+                                self.current_turn = vinnari
+                                self.broadcast_players(f"Player {self.players[self.current_turn].name} vann")
+                                if len(self.players[player_id].hand) > 0:
+                                    self.state = "first_card"
+                                    self.updatesForPlayers[self.current_turn].append("Play a card")
+                                else:
+                                    # TODO scoreboard skal updaterast
+                                    # TODO scoreboard tá tað kemur niður á 0 skal hettar updaterast
+                                    # TODO tá scoreboard kemur á 0/X skal staturin setast til `end`
+                                    self.dealer_position = ((self.dealer_position + 1) % 4) or 4
+                                    self.setup_game()
                             else:
                                 self.current_turn = ((self.current_turn + 1) % 4) or 4
                                 self.updatesForPlayers[self.current_turn].append("Your turn!")
