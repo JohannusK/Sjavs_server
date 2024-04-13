@@ -32,11 +32,7 @@ class Table:
                     (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
                 self.cards.append(card)
                 self.cardOwners.append(player)
-                if len(self.cards) == 4:
-                    #TODO ger klárt at til fyrsta útspal og finn hvør vann o.s.fr.
-                    return f"Last card\n" + ' '.join([str(x) for x in self.cards])
-                else:
-                    return "OK"
+                return "OK"
             else:
                 player.hand.append(ok_card)
                 return "Ikki loyvt!"
@@ -90,7 +86,7 @@ class Card:
         trump = trump[0]
         
         if first_card.is_trump(trump):
-            return self.is_trump()
+            return self.is_trump(trump)
         
         return (self.suit == first_card.suit) and (self.short_name() not in self.TRUMPS)
 
