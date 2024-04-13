@@ -221,19 +221,11 @@ class Game:
             return:
                 the hand
 
-        `deal`:
-            deales cards
-            TODO WTF is this
-            return:
-                " ": all good
 
         `quit`:
             sets a boolinan to True
             return:
                 "Game over."
-
-        `start game`:
-            I dont even
 
         default:
             return:
@@ -258,14 +250,17 @@ class Game:
 
         elif command.startswith("P"):
             player_id = int(command[1 : command.find(" ")])
-            command = command[command.find(" ") + 1 :]
+            command = command[command.find(" ") + 1:]
 
             if command.startswith("list players"):
                 player_list = "".join(
                     f"ID {id}: {player.name}, Last Update: {player.time_since_last_update():.2f}s ago\n"
                     for id, player in self.players.items()
                 )
-                return f"Turn: {self.players[self.current_turn].name}\nCurrent Players:\n{player_list}"
+                if self.current_turn:
+                    return f"Turn: {self.players[self.current_turn].name}\nCurrent Players:\n{player_list}"
+                else:
+                    return f"Current Players:\n{player_list}"
 
             elif command.startswith("state"):
                 # TODO implement
@@ -332,7 +327,4 @@ class Game:
                 self.game_over = True
                 return "Game over."
 
-            elif command == "start game":
-                if self.nPlayers == 2:
-                    return " "
             return "Unknown command."
