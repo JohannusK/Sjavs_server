@@ -5,11 +5,23 @@ class Game:
     def __init__(self) -> None:
         self.deck: Deck = Deck()
         self.nPlayers: int = 0
+        self.teamp: dict[int, list[int]] = {1: [1, 3], 2: [2, 4]}
+        self.STATES: list[str] = [
+            "init",
+            "deal",
+            "declaration",
+            "first_card",
+            "play",
+            "end",
+        ]
+        self.state: str = "init"
         self.game_over: bool = True
         self.players: dict[int, Player] = {}
         self.updatesForPlayers: dict[int, list[str]] = {}
         self.dealer_position: int = 1
-        self.current_turn: int = 1  # Start with player 1's turn
+        self.current_turn: int = (
+            0  # init to so sanity checks unter game_init don't freak out
+        )
         self.deal_method: str = "fours"
         self.trump_length: int = 0  # Length of the longest trump suit declared
         self.trump_suit: str | None = None  # Suit of the declared trump
@@ -65,16 +77,51 @@ class Game:
 
         return " "
 
+    def get_state(self, info: bool) -> str:
+        if not info:
+            return self.state
+        return (
+            self.state
+            + "\n"
+            + {"init": f"{self.nPlayers} have joined"}.get(
+                self.state, "Not Implemented"
+            )
+        )
+
     def setup_game(self) -> None:
         self.deck.shuffle()
+        self.state = "deal"
         if self.dealer_position == 1:
             self.ask_for_split_or_banka(4)
         else:
             self.ask_for_split_or_banka(self.dealer_position - 1)
-        self.current_turn = 1
         self.game_over = False
 
-    def deal_cards(self) -> None:
+    def deal_cards(self, player_id: int, _type: str, split_position: int = 0) -> None:
+        """
+        split or banka and deal the cards acordingly
+        params:
+            _type: split or banka
+            split_position: only applyes to split and is the amound of cards to split
+        """
+
+        if self.state != "deal":
+            return f"vit eru í {self.stage=}"
+
+        if self.current_turn != player_id:
+            print(self.current_turn)
+            return "tad er ikki tín túrur"
+
+        if (_type == "split") and (10 <= split_position <= 22):
+            self.deck.cut(split_position)
+            self.deal_method = "fours"
+            self.broadcast_players("Deck split and cards dealt in fours")
+        elif _type == "banka":
+            self.deal_method = "eights"
+            self.broadcast_players(f"Deck unchanged and cards dealt in eights. ")
+        else:
+            return "Invalid split position, try again"
+
         cards_per_player = 8
         deal_rounds = 2 if self.deal_method == "fours" else 1
 
@@ -91,10 +138,18 @@ class Game:
         # Notify all players that cards have been dealt
         self.broadcast_players(f"Received {cards_per_player} cards.")
 
-    def ask_for_split_or_banka(self, player_id) -> None:
+        self.current_turn = (self.current_turn + 1) % 4 or 4
+        self.state = "declaration"
+        self.updatesForPlayers[self.current_turn].append(
+            f"{self.players[self.current_turn].name} hvat meldar tú?"
+        )
+        return " "
+
+    def ask_for_split_or_banka(self, player_id: int) -> None:
+        self.current_turn = player_id
         self.updatesForPlayers[player_id].append("Choose 'split <position>' or 'banka'")
 
-    def broadcast_players(self, msg:str) -> None:
+    def broadcast_players(self, msg: str) -> None:
         for player_id in self.players:
             self.updatesForPlayers[player_id].append(msg)
 
@@ -119,9 +174,15 @@ class Game:
         `list players`:
             lists all the players
 
+        `state [info]`:
+            get the state of the game
+            if info more verbose
+
+        ### init state
         `maxmeld`:
             finds your longest suits
             returns f"{longest_length} in {' and '.join(longest_suits)}"
+
         `M {n}`:
             declare a trump lenght of {n}
             return:
@@ -194,6 +255,7 @@ class Game:
                 if self.nPlayers == 4:
                     self.setup_game()
                 return f"P{self.nPlayers}"
+
         elif command.startswith("P"):
             player_id = int(command[1 : command.find(" ")])
             command = command[command.find(" ") + 1 :]
@@ -204,6 +266,10 @@ class Game:
                     for id, player in self.players.items()
                 )
                 return f"Turn: {self.players[self.current_turn].name}\nCurrent Players:\n{player_list}"
+
+            elif command.startswith("state"):
+                # TODO implement
+                return "Not Implemented"
             elif command == "maxmeld":
                 return str(self.players[player_id].find_highest_trump_declaration())
             elif command.startswith("M "):  # Trump declaration starts with 'M '
@@ -220,29 +286,14 @@ class Game:
                     return "Invalid suit"
             elif command.startswith("split"):
                 # Here, the deck is split and dealt in fours
-                split_position = int(command.split()[-1])
-                response = ""
-                if 10 <= split_position <= 22:
-                    self.deck.cut(split_position)
-                    self.deal_method = "fours"
-                    self.deal_cards()
-                    response += "Deck split and cards dealt in fours"
-                else:
-                    return "Invalid split position, try again"
-                self.updatesForPlayers[self.current_turn].append(
-                    f"{self.players[self.current_turn].name} hvat meldar tú?"
-                )
-                self.broadcast_players(response)
-                return " "
+                try:
+                    split_position = int(command.split()[-1])
+                except:
+                    split_position = -1
+                return self.deal_cards(player_id, "split", split_position)
             elif command.startswith("banka"):
                 # If 'banka', the deck remains unchanged and dealt in eights
-                self.deal_method = "eights"
-                self.deal_cards()
-                self.broadcast_players(f"Deck unchanged and cards dealt in eights. ")
-                self.updatesForPlayers[self.current_turn].append(
-                    f"{ self.players[self.current_turn].name} hvat meldar tú?"
-                )
-                return " "
+                return self.deal_cards(player_id, "banka")
             elif command.startswith("Say"):
                 self.broadcast_players(
                     f"{self.players[player_id].name} says:{command[3:]}"
