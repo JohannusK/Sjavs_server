@@ -107,10 +107,8 @@ class Player:
         if longest_length < 5:
             return "Pass"  # If no suit has 5 or more cards including high trumps
         longest_suits = [suit for suit, count in suit_counts.items() if count == longest_length]
-        if len(longest_suits) > 1:
-            return f"{longest_length} in {' and '.join(longest_suits)}"
-        else:
-            return f"{longest_length} in {longest_suits[0]}"
+
+        return str(longest_length) + ''.join([x[0] for x in longest_suits])
 
     def update_last_time(self):
         self.last_update_time = time.time()
