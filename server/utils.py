@@ -47,11 +47,7 @@ class Table:
                     (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
                 self.cards.append(ok_card)
                 self.cardOwners.append(player)
-                if len(self.cards) == 4:
-                    #TODO ger klárt at til fyrsta útspal og finn hvør vann o.s.fr.
-                    return f"Last card\n" + ' '.join([str(x) for x in self.cards])
-                else:
-                    return "OK"
+                return "OK"
             else:
                 player.hand.append(ok_card)
                 return "Ikki loyvt!"
@@ -162,7 +158,6 @@ class Player:
         for card in self.hand:
             if (card.value == 12 and card.suit in ['Clubs', 'Spades']) or (card.value == 11):
                 high_trumps_count += 1
-                print('Trump ' + str(card.value) + ' ' + card.suit)
             else:
                 normal_cards.append(card)
         suit_counts = {'Hearts': 0, 'Clubs': 0, 'Diamonds': 0, 'Spades': 0}
@@ -173,7 +168,7 @@ class Player:
             suit_counts[suit] += high_trumps_count
         longest_length = max(suit_counts.values())
         if longest_length < 5:
-            return "Pass"  # If no suit has 5 or more cards including high trumps
+            return "0"  # If no suit has 5 or more cards including high trumps
         longest_suits = [suit for suit, count in suit_counts.items() if count == longest_length]
 
         return str(longest_length) + ''.join([x[0] for x in longest_suits])
