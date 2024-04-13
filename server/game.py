@@ -40,8 +40,7 @@ class Game:
             return "Invalid declaration"
 
         # Update all players
-        for id in self.players:
-            self.updatesForPlayers[id].append(response)
+        self.broadcast_players(response)
 
 
 
@@ -50,8 +49,7 @@ class Game:
 
         if self.declaration_count > self.nPlayers:
             self.current_turn = 0
-            for id in self.players:
-                self.updatesForPlayers[id].append(f"Declarations complete. {self.trump_owner.name} has the highest declaration.")
+            self.broadcast_players(f"Declarations complete. {self.trump_owner.name} has the highest declaration.")
             self.updatesForPlayers[self.trump_owner.id].append("What suit is your declaration?")
             return " "
         self.updatesForPlayers[self.current_turn].append(f"{self.players[self.current_turn].name}'s turn to declare.")
@@ -66,7 +64,6 @@ class Game:
             self.ask_for_split_or_banka(self.dealer_position - 1)
         self.current_turn = 1
         self.game_over = False
-
 
     def deal_cards(self):
         cards_per_player = 8
@@ -83,11 +80,15 @@ class Game:
                         print(e)  # Handle the case where the deck runs out of cards
                         return
         # Notify all players that cards have been dealt
-        for player_id in self.players:
-            self.updatesForPlayers[player_id].append(f"Received {cards_per_player} cards.")
+        self.broadcast_players(f"Received {cards_per_player} cards.")
 
     def ask_for_split_or_banka(self, player_id):
         self.updatesForPlayers[player_id].append("Choose 'split <position>' or 'banka'")
+
+    def broadcast_players(self, msg):
+        for player_id in self.players:
+            self.updatesForPlayers[player_id].append(msg)
+
 
     def process_command(self, command):
         '''
@@ -197,8 +198,7 @@ default:
                 suit = command.split(' ')[1]
                 if (suit in self.players[player_id].find_highest_trump_declaration()) and (suit in ["Hearts", "Clubs", "Diamonds", "Spades"]):
                     self.trump_suit = suit
-                    for id in self.players:
-                        self.updatesForPlayers[id].append(f"The current trump is {suit}")
+                    self.broadcast_players(f"The current trump is {suit}")
                     return " "
                 else:
                     return "Invalid suit"
@@ -214,20 +214,17 @@ default:
                 else:
                     return "Invalid split position, try again"
                 self.updatesForPlayers[self.current_turn].append(f"{self.players[self.current_turn].name} hvat meldar tú?")
-                for id in self.players:
-                    self.updatesForPlayers[id].append(response)
+                self.broadcast_players(response)
                 return " "
             elif command.startswith("banka"):
                 # If 'banka', the deck remains unchanged and dealt in eights
                 self.deal_method = "eights"
                 self.deal_cards()
-                for id in self.players:
-                    self.updatesForPlayers[id].append(f"Deck unchanged and cards dealt in eights. ")
+                self.broadcast_players(f"Deck unchanged and cards dealt in eights. ")
                 self.updatesForPlayers[self.current_turn].append(f"{ self.players[self.current_turn].name} hvat meldar tú?")
                 return " "
             elif command.startswith("Say"):
-                for id in self.players:
-                    self.updatesForPlayers[id].append(f"{self.players[player_id].name} says:{command[3:]}")
+                self.broadcast_players(f"{self.players[player_id].name} says:{command[3:]}")
                 return " "
 
             elif command.startswith("GU"):
