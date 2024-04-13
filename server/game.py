@@ -138,7 +138,7 @@ class Game:
         # Notify all players that cards have been dealt
         self.broadcast_players(f"Received {cards_per_player} cards.")
 
-        self.current_turn = (self.current_turn + 1) % 4 or 4
+        self.current_turn = (self.dealer_position + 1) % 4 or 4
         self.state = "declaration"
         self.updatesForPlayers[self.current_turn].append(
             f"{self.players[self.current_turn].name} hvat meldar tú?"
