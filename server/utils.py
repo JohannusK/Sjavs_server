@@ -2,8 +2,6 @@ import random
 import time
 
 
-
-
 class Table:
     def __init__(self, trump):
         self.cards: list[Card] = []
@@ -25,8 +23,8 @@ class Table:
         ok_card = take_card(player, card)
         if ok_card:
             player.hasSuit(self.firstCard.suit)
-            if ((ok_card.is_suit(self.firstCard, self.trump)) or
-                    (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand])) or (card.suit == self.trump)):
+            if (ok_card.is_suit(self.firstCard, self.trump) or
+                    (not any([x.is_suit(self.firstCard, self.trump) for x in player.hand]))):
                 self.cards.append(card)
                 return 0
             else:
