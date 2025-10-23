@@ -20,7 +20,7 @@
           </label>
           <label>
             Port
-            <input type="number" id="port-input" placeholder="65432" value="8000" />
+            <input type="number" id="port-input" placeholder="8000" value="8000" />
           </label>
           <button type="submit">Join table</button>
         </form>
@@ -66,7 +66,12 @@
             <h3>Play Card</h3>
             <div id="card-buttons"></div>
           </div>
-          <div id="deal-actions" class="hidden">
+          <div id="meld-actions" class="panel subpanel hidden">
+            <h3>Declaration</h3>
+            <div id="meld-info"></div>
+            <div id="meld-buttons"></div>
+          </div>
+          <div id="deal-actions" class="hidden subpanel">
             <h3>Deal Options</h3>
             <div class="deal-controls">
               <label>

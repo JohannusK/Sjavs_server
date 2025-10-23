@@ -302,6 +302,7 @@ button:hover {
   background: #141414;
   border-radius: 6px;
   padding: 0.75rem;
+  width: 100%;
 }
 
 #deal-actions.hidden {
@@ -355,4 +356,21 @@ button:hover {
   border-radius: 6px;
   padding: 0.75rem;
   width: clamp(520px, 60vw, 640px);
+}
+
+#meld-actions {
+  width: 100%;
+}
+
+#meld-info {
+  text-align: center;
+  color: #ccc;
+  margin-bottom: 0.5rem;
+}
+
+#meld-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }

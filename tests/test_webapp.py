@@ -41,6 +41,8 @@ def test_join_command_and_state_flow():
     assert "table_slots" in state_data
     assert "last_winner" in state_data
     assert "highlight_until" in state_data
+    assert "recent_trick" in state_data
+    assert "recent_trick_expire" in state_data
     if state_data["players"]:
         player_entry = state_data["players"][0]
         assert "ping" in player_entry

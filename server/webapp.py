@@ -4,6 +4,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+import time
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +66,8 @@ class StateResponse(BaseModel):
     table_slots: List[Dict[str, Any]]
     last_winner: Optional[int]
     highlight_until: float
+    recent_trick: List[Dict[str, Any]]
+    recent_trick_expire: float
 
 
 def require_session(token: str) -> Dict[str, Any]:
@@ -89,6 +92,7 @@ def join(payload: JoinRequest) -> JoinResponse:
         player_id = int(reply[1:])
         token = uuid4().hex
         sessions[token] = {"player_id": player_id, "name": name}
+        game.last_reset_message = None
     return JoinResponse(token=token, player_id=player_id, message="Joined successfully.")
 
 
@@ -136,19 +140,34 @@ def state(token: str) -> StateResponse:
                     "ok": ping <= 0.7,
                 }
             )
+        now = time.time()
         if game.table and game.table.cards:
             table_cards = [str(card) for card in game.table.cards]
             table_slots = [
                 {"id": owner.id, "name": owner.name, "card": str(card)}
                 for owner, card in zip(game.table.cardOwners, game.table.cards)
             ]
+            recent_trick = []
         else:
             table_cards = []
             table_slots = []
+            if game.last_trick_cards and now < game.last_trick_expire:
+                recent_trick = [
+                    {"id": pid, "card": card}
+                    for pid, card in game.last_trick_cards
+                ]
+            else:
+                recent_trick = []
+                if now >= game.last_trick_expire:
+                    game.last_trick_cards = []
+                    game.last_trick_expire = 0.0
         player = game.players.get(player_id)
+        if player is None:
+            raise HTTPException(status_code=410, detail=game.last_reset_message or "Session reset. Please rejoin.")
         hand = [str(card) for card in getattr(player, "hand", [])]
         last_winner = game.last_trick_winner
         highlight_until = game.highlight_until
+        recent_trick_expire = game.last_trick_expire
 
     return StateResponse(
         scoreboard=scoreboard,
@@ -161,6 +180,8 @@ def state(token: str) -> StateResponse:
         table_slots=table_slots,
         last_winner=last_winner,
         highlight_until=highlight_until,
+        recent_trick=recent_trick,
+        recent_trick_expire=recent_trick_expire,
     )
 
 

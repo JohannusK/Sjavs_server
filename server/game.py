@@ -43,6 +43,9 @@ class Game:
         self.bot_manager: BotManager | None = None
         self.last_trick_winner: int | None = None
         self.highlight_until: float = 0.0
+        self.last_trick_cards: list[tuple[int, str]] = []
+        self.last_trick_expire: float = 0.0
+        self.last_reset_message: str | None = None
 
     def handle_trump_declaration(self, command: str, player_id: int) -> str:
         parts = command.split()
@@ -137,6 +140,43 @@ class Game:
 
     def attach_bot_manager(self, manager: "BotManager") -> None:
         self.bot_manager = manager
+        self.last_reset_message = None
+
+    def _check_player_timeouts(self) -> bool:
+        timed_out = [pid for pid, player in self.players.items() if player.time_since_last_update() > 60]
+        if timed_out:
+            names = [self.players[pid].name for pid in timed_out if pid in self.players]
+            name_text = ", ".join(names) if names else ", ".join(str(pid) for pid in timed_out)
+            reason = f"Inactivity timeout: {name_text}"
+            self._force_reset(reason)
+            return True
+        return False
+
+    def _force_reset(self, reason: str) -> None:
+        message = f"Game reset due to inactivity. ({reason})"
+        for pid in list(self.updatesForPlayers.keys()):
+            self.updatesForPlayers[pid].append(message)
+        self.deck = None
+        self.table = None
+        self.state = "init"
+        self.game_over = True
+        self.players.clear()
+        self.updatesForPlayers.clear()
+        self.nPlayers = 0
+        self.trump_length = 0
+        self.trump_suit = None
+        self.trump_owner = None
+        self.declaration_count = 1
+        self.declaration_team = None
+        self.current_turn = 0
+        self.deal_method = "fours"
+        self.dealer_position = 1
+        self.trick_winners = []
+        self.last_trick_winner = None
+        self.highlight_until = 0.0
+        self.scoreboard = {"Vit": 24, "Tit": 24}
+        self.next_game_bonus = 0
+        self.last_reset_message = message
 
     def _redeal_after_failed_declaration(self) -> None:
         self.deck = Deck()
@@ -289,6 +329,7 @@ class Game:
         """
         #print(command)
         if command.startswith("Hallo"):
+            self._check_player_timeouts()
             if self.nPlayers >= 4:
                 return "full"
             self.nPlayers += 1
@@ -298,15 +339,22 @@ class Game:
             self.updatesForPlayers[self.nPlayers]
             if self.nPlayers == 4:
                 self.setup_game()
+            self.last_reset_message = None
             return f"P{self.nPlayers}"
 
         elif command.startswith("P"):
+            if self._check_player_timeouts():
+                return self.last_reset_message or "Game reset. Please rejoin."
             player_segment, sep, rest = command.partition(" ")
             try:
                 player_id = int(player_segment[1:])
             except ValueError:
                 return "Unknown player."
             command = rest.strip()
+            player = self.players.get(player_id)
+            if player is None:
+                return self.last_reset_message or "Unknown player."
+            player.update_last_time()
 
             normalized = command.lower()
 
@@ -396,7 +444,13 @@ class Game:
                             f"{player_id} Player {current_player.name} has played {card}"
                         )
                         if len(self.table.cards) == 4:
+                            trick_snapshot = [
+                                (owner.id, str(card))
+                                for owner, card in zip(self.table.cardOwners, self.table.cards)
+                            ]
                             winner = self.table.clear_and_reset()
+                            self.last_trick_cards = trick_snapshot
+                            self.last_trick_expire = time.time() + 2.0
                             self.trick_winners.append(winner)
                             self.current_turn = winner
                             self.broadcast_players(
@@ -484,6 +538,8 @@ class Game:
         self.table.cardOwners.clear()
         self.table.firstCard = None
         self.table.team_piles = {'Vit': [], 'Tit': []}
+        self.last_trick_cards = []
+        self.last_trick_expire = 0.0
 
         if match_finished:
             self.table = None
