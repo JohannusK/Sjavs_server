@@ -1,0 +1,33 @@
+2025-10-17 13:49:56 WEST INFO    Running Codex v1.4.3
+2025-10-17 13:49:56 WEST INFO    Ensuring database is correct and up to date...
+2025-10-17 13:49:59 WEST INFO    Database ready.
+2025-10-17 13:49:59 WEST INFO    Created admin user.
+2025-10-17 13:49:59 WEST INFO    Created AdminFlag: Folder View = True
+2025-10-17 13:49:59 WEST INFO    Created AdminFlag: Registration = True
+2025-10-17 13:49:59 WEST INFO    Created AdminFlag: Non Users = True
+2025-10-17 13:49:59 WEST INFO    Created AdminFlag: Auto Update = True
+2025-10-17 13:49:59 WEST INFO    Created AdminFlag: Search Index Full Optimization = True
+2025-10-17 13:49:59 WEST INFO    root_path: 
+2025-10-17 13:49:59 WEST INFO    BroadcastListener started.
+2025-10-17 13:49:59 WEST WARNING 'unrar' not on path. Not detecting .cbr archives.
+2025-10-17 13:49:59 WEST INFO    BroadcastListener shutdown
+2025-10-17 13:49:59 WEST INFO    LibrarianDaemon started all threads.
+2025-10-17 13:49:59 WEST INFO    LibrarianDaemon ready for tasks.
+2025-10-17 13:51:01 WEST INFO    Running Codex v1.4.3
+2025-10-17 13:51:01 WEST INFO    Ensuring database is correct and up to date...
+2025-10-17 13:51:01 WEST INFO    Database integrity confirmed.
+2025-10-17 13:51:01 WEST INFO    Database up to date.
+2025-10-17 13:51:01 WEST INFO    Database ready.
+2025-10-17 13:51:01 WEST INFO    root_path: 
+2025-10-17 13:51:01 WEST INFO    BroadcastListener started.
+2025-10-17 13:51:01 WEST WARNING 'unrar' not on path. Not detecting .cbr archives.
+2025-10-17 13:51:01 WEST INFO    BroadcastListener shutdown
+2025-10-17 14:03:25 WEST INFO    Running Codex v1.4.3
+2025-10-17 14:03:25 WEST INFO    Ensuring database is correct and up to date...
+2025-10-17 14:03:25 WEST INFO    Database integrity confirmed.
+2025-10-17 14:03:25 WEST INFO    Database up to date.
+2025-10-17 14:03:25 WEST INFO    Database ready.
+2025-10-17 14:03:25 WEST INFO    root_path: 
+2025-10-17 14:03:25 WEST INFO    BroadcastListener started.
+2025-10-17 14:03:25 WEST WARNING 'unrar' not on path. Not detecting .cbr archives.
+2025-10-17 14:03:25 WEST INFO    BroadcastListener shutdown

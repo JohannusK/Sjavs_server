@@ -1,9 +1,18 @@
-from utils import Deck, Card, Player, Table
+from __future__ import annotations
+
+import time
+from collections import defaultdict
+from typing import DefaultDict, TYPE_CHECKING
+
+from .utils import Deck, Card, Player, Table
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .bot_manager import BotManager
 
 
 class Game:
     def __init__(self) -> None:
-        self.deck: Deck | None = None
+        self.deck: Deck | None = None
         self.table: Table | None = None
 
         self.nPlayers: int = 0
@@ -19,50 +28,72 @@ class Game:
         self.state: str = "init"
         self.game_over: bool = True
         self.players: dict[int, Player] = {}
-        self.updatesForPlayers: dict[int, list[str]] = {}
+        self.updatesForPlayers: DefaultDict[int, list[str]] = defaultdict(list)
         self.dealer_position: int = 1
-        self.current_turn: int = (
-            0  # init to so sanity checks unter game_init don't freak out
-        )
+        self.current_turn: int = 0  # init to so sanity checks unter game_init don't freak out
         self.deal_method: str = "fours"
         self.trump_length: int = 0  # Length of the longest trump suit declared
         self.trump_suit: str | None = None  # Suit of the declared trump
         self.trump_owner: Player | None = None
         self.declaration_count: int = 1
+        self.declaration_team: str | None = None
+        self.scoreboard: dict[str, int] = {"Vit": 24, "Tit": 24}
+        self.next_game_bonus: int = 0
+        self.trick_winners: list[int] = []
+        self.bot_manager: BotManager | None = None
+        self.last_trick_winner: int | None = None
+        self.highlight_until: float = 0.0
 
     def handle_trump_declaration(self, command: str, player_id: int) -> str:
         parts = command.split()
-        declaration = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+        try:
+            declaration = int(parts[1])
+        except (IndexError, ValueError):
+            declaration = 0
         if player_id != self.current_turn:
             return "Not your turn"
 
         current_player = self.players[player_id]
-        maxmeld = self.players[player_id].find_highest_trump_declaration()
-        if declaration == 0:
-            response = f"{current_player.name} passes."
+        maxmeld = current_player.find_highest_trump_declaration()
+        digits = "".join(ch for ch in maxmeld if ch.isdigit())
+        maxmeld_length = int(digits) if digits else 0
+        maxmeld_suits = "".join(ch for ch in maxmeld if ch.isalpha()).upper()
+
+        if declaration == 0 or maxmeld_length < 5:
+            response = f"{str(player_id)} {current_player.name} passes."
             self.declaration_count += 1
         elif (
-            (5 <= declaration > self.trump_length)
-            or ((declaration == self.trump_length) and ("Clubs" in maxmeld))
-            and int(maxmeld.split(" ")[0]) == declaration
+            declaration >= 5
+            and maxmeld_length >= declaration
+            and (
+                declaration > self.trump_length
+                or ("C" in maxmeld_suits and declaration == self.trump_length)
+            )
         ):
-            response = f"{current_player.name} declares {declaration}"
-            if (declaration == self.trump_length) and ("Clubs" in maxmeld):
+            response = f"{str(player_id)} {current_player.name} declares {declaration}"
+            if declaration == self.trump_length and "C" in maxmeld_suits:
                 response += " Better"
-                self.trump_suit = "Clubs"
+                self.trump_suit = "C"
             self.trump_length = declaration
             self.trump_owner = current_player
+            self.declaration_team = self._team_for_player(player_id)
             self.declaration_count += 1
         else:
             return "Invalid declaration"
 
         # Update all players
+
+
         self.broadcast_players(response)
 
         # Move to the next player
         self.current_turn = (self.current_turn % self.nPlayers) + 1
 
         if self.declaration_count > self.nPlayers:
+            if self.trump_owner is None:
+                self.broadcast_players("No player declared trump. Redealing.")
+                self._redeal_after_failed_declaration()
+                return " "
             self.current_turn = self.trump_owner.id
             self.broadcast_players(
                 f"Declarations complete. {self.trump_owner.name} has the highest declaration."
@@ -81,30 +112,63 @@ class Game:
         if not info:
             return self.state
         return (
-            self.state
-            + "\n"
-            + {"init": f"{self.nPlayers} have joined"}.get(
-                self.state, "Not Implemented"
-            )
+                self.state
+                + "\n"
+                + {"init": f"{self.nPlayers} have joined"}.get(
+            self.state, "Not Implemented"
         )
+        )
+
+    def _reset_round_state(self) -> None:
+        self.trump_length = 0
+        self.trump_suit = None
+        self.trump_owner = None
+        self.declaration_count = 1
+        self.current_turn = 0
+        self.deal_method = "fours"
+        self.declaration_team = None
+        self.trick_winners = []
+        self.last_trick_winner = None
+        self.highlight_until = 0.0
+
+    @staticmethod
+    def _team_for_player(player_id: int) -> str:
+        return "Vit" if player_id % 2 == 1 else "Tit"
+
+    def attach_bot_manager(self, manager: "BotManager") -> None:
+        self.bot_manager = manager
+
+    def _redeal_after_failed_declaration(self) -> None:
+        self.deck = Deck()
+        self.deck.shuffle()
+        self.table = None
+        self._reset_round_state()
+        for player in self.players.values():
+            player.hand.clear()
+        self.state = "deal"
+        self.ask_for_split_or_banka(((self.dealer_position - 1) % 4) or 4)
 
     def setup_game(self) -> None:
         self.deck = Deck()
         self.deck.shuffle()
+        self.table = None
+        self._reset_round_state()
+        for player in self.players.values():
+            player.hand.clear()
         self.state = "deal"
-        self.ask_for_split_or_banka(((self.dealer_position - 1) % 4 ) or 4)
+        self.ask_for_split_or_banka(((self.dealer_position - 1) % 4) or 4)
         self.game_over = False
 
-    def deal_cards(self, player_id: int, _type: str, split_position: int = 0) -> None:
+    def deal_cards(self, player_id: int, _type: str, split_position: int = 0) -> str:
         """
-        split or banka and deal the cards acordingly
+        Split or banka and deal the cards accordingly.
         params:
             _type: split or banka
-            split_position: only applyes to split and is the amound of cards to split
+            split_position: only applies to split and is the amount of cards to split
         """
 
         if self.state != "deal":
-            return f"vit eru í {self.stage=}"
+            return f"Cannot deal cards while in '{self.state}' state."
 
         if self.current_turn != player_id:
             return self.get_state()
@@ -115,31 +179,26 @@ class Game:
             self.broadcast_players("Deck split and cards dealt in fours")
         elif _type == "banka":
             self.deal_method = "eights"
-            self.broadcast_players(f"Deck unchanged and cards dealt in eights. ")
+            self.broadcast_players("Deck unchanged and cards dealt in eights.")
         else:
             return "Invalid split position, try again"
 
         cards_per_player = 8
         deal_rounds = 2 if self.deal_method == "fours" else 1
 
-        for round in range(deal_rounds):
-            for player_id in range(1, self.nPlayers + 1):
-                player = self.players[player_id]
+        for _round in range(deal_rounds):
+            for pid in range(1, self.nPlayers + 1):
+                player = self.players[pid]
                 cards_to_deal = cards_per_player // deal_rounds
                 for _ in range(cards_to_deal):
-                    try:
-                        player.draw(self.deck)
-                    except ValueError as e:
-                        print(e)  # Handle the case where the deck runs out of cards
-                        return
+                    if not player.draw(self.deck):
+                        return "Deck ran out of cards while dealing."
         # Notify all players that cards have been dealt
         self.broadcast_players(f"Received {cards_per_player} cards.")
 
         self.current_turn = (self.dealer_position + 1) % 4 or 4
         self.state = "declaration"
-        self.updatesForPlayers[self.current_turn].append(
-            f"{self.players[self.current_turn].name} hvat meldar tú?"
-        )
+        self.broadcast_players(f"{self.players[self.current_turn].name} hvat meldar tú?")
         return " "
 
     def ask_for_split_or_banka(self, player_id: int) -> None:
@@ -147,8 +206,8 @@ class Game:
         self.updatesForPlayers[player_id].append("Choose 'split <position>' or 'banka'")
 
     def broadcast_players(self, msg: str) -> None:
-        for player_id in self.players:
-            self.updatesForPlayers[player_id].append(msg)
+        for player in self.players.values():
+            self.updatesForPlayers[player.id].append(msg)
 
     def process_command(self, command: str) -> str:
         """
@@ -232,46 +291,59 @@ class Game:
         if command.startswith("Hallo"):
             if self.nPlayers >= 4:
                 return "full"
-            else:
-                self.nPlayers += 1
-                self.players[self.nPlayers] = Player(
-                    command[14:], self.nPlayers
-                )  # Add the player to the dictionary
-                self.updatesForPlayers[
-                    self.nPlayers
-                ] = []  # Initialize player's update list
-                if self.nPlayers == 4:
-                    self.setup_game()
-                return f"P{self.nPlayers}"
+            self.nPlayers += 1
+            name = command[14:].strip() or f"Player {self.nPlayers}"
+            self.players[self.nPlayers] = Player(name, self.nPlayers)
+            # Touch the defaultdict so the list exists for subsequent updates.
+            self.updatesForPlayers[self.nPlayers]
+            if self.nPlayers == 4:
+                self.setup_game()
+            return f"P{self.nPlayers}"
 
         elif command.startswith("P"):
-            player_id = int(command[1 : command.find(" ")])
-            command = command[command.find(" ") + 1:]
+            player_segment, sep, rest = command.partition(" ")
+            try:
+                player_id = int(player_segment[1:])
+            except ValueError:
+                return "Unknown player."
+            command = rest.strip()
 
-            if command.startswith("list players"):
+            normalized = command.lower()
+
+            if normalized == "bots" or normalized.startswith("bots "):
+                if self.bot_manager is None:
+                    return "Bot manager unavailable."
+                parts = command.split()
+                requested = None
+                if len(parts) > 1 and parts[1].isdigit():
+                    requested = int(parts[1])
+                return self.bot_manager.ensure_bots(requested)
+
+            if normalized.startswith("list players"):
                 player_list = "".join(
                     f"ID {id}: {player.name}, Last Update: {player.time_since_last_update():.2f}s ago\n"
                     for id, player in self.players.items()
                 )
                 if self.current_turn:
-                    return f"Turn: {self.players[self.current_turn].name}\nCurrent Players:\n{player_list}"
+                    return f"Turn: {self.current_turn}\nCurrent Players:\n{player_list}"
                 else:
                     return f"Current Players:\n{player_list}"
 
-            elif command.startswith("state"):
+            elif normalized.startswith("state"):
                 print(self.state)
                 # TODO implement
                 return "Not Implemented"
-            elif command == "maxmeld":
+            elif normalized == "maxmeld":
                 return str(self.players[player_id].find_highest_trump_declaration())
-            elif command == "MA":
+            elif command.upper() == "MA":
                 for i in [2, 3, 4, 1]:
                     tmp = self.players[i].find_highest_trump_declaration()
                     fart = self.handle_trump_declaration("M " + tmp[0], i)
                     if fart == "Invalid declaration":
                         self.handle_trump_declaration("M 0", i)
-                print(f"P{self.trump_owner.id} S {self.players[self.trump_owner.id].find_highest_trump_declaration()[1]}")
-                self.process_command(f"P{self.trump_owner.id} S {self.players[self.trump_owner.id].find_highest_trump_declaration()[1]}")
+                if self.trump_owner:
+                    suit_hint = self.players[self.trump_owner.id].find_highest_trump_declaration()[1]
+                    self.process_command(f"P{self.trump_owner.id} S {suit_hint}")
 
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
@@ -279,10 +351,15 @@ class Game:
                 import IPython
                 IPython.embed()
                 exit()
-            elif command.startswith("S "):
-                suit = command[2]
-                if ((suit in self.players[player_id].find_highest_trump_declaration()[1:])
-                        and (self.current_turn == player_id)):
+            elif normalized.startswith("s "):
+                parts = command.split()
+                if len(parts) < 2:
+                    return "Invalid suit"
+                suit = parts[1][0].upper()
+                if (
+                    suit in self.players[player_id].find_highest_trump_declaration()[1:]
+                    and self.current_turn == player_id
+                ):
                     self.trump_suit = suit
                     self.broadcast_players(f"The current trump is {suit}")
                     self.table = Table(suit)
@@ -290,96 +367,222 @@ class Game:
                     self.current_turn = ((self.dealer_position + 1) % 4) or 4
                     self.updatesForPlayers[self.current_turn].append("Play a card")
                     return " "
-                else:
-                    return "Invalid suit"
-            elif command.startswith("P "):
-                card = command.split(" ")[1]
-                if self.current_turn == player_id:
-                    if self.state == "first_card":
-                        tmp = self.table.play_first_card(card, self.players[player_id])
-                        if tmp == "OK":
-                            self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
-                            self.state = "play"
+                return "Invalid suit"
+            elif command.upper().startswith("P "):
+                # Plays a card
+                parts = command.split()
+                if len(parts) < 2:
+                    return "Invalid card"
+                if not self.table:
+                    return "No active trick."
+                card = parts[1]
+                if self.current_turn != player_id:
+                    return "Not your turn"
+                current_player = self.players[player_id]
+                if self.state == "first_card":
+                    tmp = self.table.play_first_card(card, current_player)
+                    if tmp == "OK":
+                        self.broadcast_players(
+                            f"{player_id} Player {current_player.name} has played {card}"
+                        )
+                        self.state = "play"
+                        self.current_turn = ((self.current_turn + 1) % 4) or 4
+                        self.updatesForPlayers[self.current_turn].append("Your turn!")
+                    return tmp
+                if self.state == "play":
+                    tmp = self.table.play_other_card(card, current_player)
+                    if tmp == "OK":
+                        self.broadcast_players(
+                            f"{player_id} Player {current_player.name} has played {card}"
+                        )
+                        if len(self.table.cards) == 4:
+                            winner = self.table.clear_and_reset()
+                            self.trick_winners.append(winner)
+                            self.current_turn = winner
+                            self.broadcast_players(
+                                f"Player {self.players[self.current_turn].name} vann"
+                            )
+                            self.last_trick_winner = winner
+                            self.highlight_until = time.time() + 2.5
+                            if any(player.hand for player in self.players.values()):
+                                self.state = "first_card"
+                                self.updatesForPlayers[self.current_turn].append("Play a card")
+                            else:
+                                self._complete_round()
+                        else:
                             self.current_turn = ((self.current_turn + 1) % 4) or 4
                             self.updatesForPlayers[self.current_turn].append("Your turn!")
-                        return tmp
-                    elif self.state == "play":
-                        print("PLay:")
-                        print(len(self.table.cards))
-                        tmp = self.table.play_other_card(card, self.players[player_id])
-                        print(tmp)
-                        if tmp == "OK":
-                            self.broadcast_players(f"Player {self.players[player_id].name} has played {card}")
-                            print(len(self.table.cards))
-                            if len(self.table.cards) == 4:
-                                vinnari = self.table.clear_and_reset()
-                                self.current_turn = vinnari
-                                self.broadcast_players(f"Player {self.players[self.current_turn].name} vann")
-                                if len(self.players[player_id].hand) > 0:
-                                    self.state = "first_card"
-                                    self.updatesForPlayers[self.current_turn].append("Play a card")
-                                else:
-                                    # TODO scoreboard skal updaterast
-                                    # TODO scoreboard tá tað kemur niður á 0 skal hettar updaterast
-                                    # TODO tá scoreboard kemur á 0/X skal staturin setast til `end`
-                                    self.dealer_position = ((self.dealer_position + 1) % 4) or 4
-                                    self.setup_game()
-                            else:
-                                self.current_turn = ((self.current_turn + 1) % 4) or 4
-                                self.updatesForPlayers[self.current_turn].append("Your turn!")
-                        return tmp
-                    else:
-                        return "Okkurt er galið"
+                    return tmp
+                return "Okkurt er galið"
 
-                else:
-                    return "Not your turn"
-
-            elif command.startswith("split"):
+            elif normalized.startswith("split"):
                 # Here, the deck is split and dealt in fours
                 try:
                     split_position = int(command.split()[-1])
-                except:
+                except ValueError:
                     split_position = -1
                 return self.deal_cards(player_id, "split", split_position)
-            elif command.startswith("banka"):
+            elif normalized.startswith("banka"):
                 # If 'banka', the deck remains unchanged and dealt in eights
                 return self.deal_cards(player_id, "banka")
-            elif command.startswith("Say"):
+            elif normalized.startswith("say"):
                 self.broadcast_players(
-                    f"{self.players[player_id].name} says:{command[3:]}"
+                    f"{self.players[player_id].name} says: {command[4:].strip()}"
                 )
                 return " "
 
-            elif command.startswith("GU"):
-                player_id = int(command[2:])
-                player = self.players.get(player_id)
+            elif normalized.startswith("gu"):
+                heartbeat_suffix = command[2:].strip()
+                target_id = player_id
+                if heartbeat_suffix:
+                    if not heartbeat_suffix.isdigit():
+                        return "Unknown player."
+                    target_id = int(heartbeat_suffix)
+                player = self.players.get(target_id)
                 if player:
                     player.update_last_time()  # Update the player's last interaction time
-                    updates = self.updatesForPlayers.get(player_id, [])
+                    updates = self.updatesForPlayers.get(target_id, [])
                     if updates:
                         response = "\n".join(updates)
-                        self.updatesForPlayers[
-                            player_id
-                        ] = []  # Clear updates after sending
+                        self.updatesForPlayers[target_id].clear()
                         return response
                     return "No new updates."
                 return "Player not found."
-            elif command.startswith("show"):
+            elif normalized.startswith("show"):
                 return self.players.get(player_id).show_hand()
 
-            elif command.startswith("deal"):
-                num_cards = int(command.split(" ")[-1])
-                for player_id, player in self.players.items():
-                    player.draw(
-                        self.deck, num_cards
-                    )  # Assuming draw method can handle the deck directly
-                    self.updatesForPlayers[player_id].append(
+            elif normalized.startswith("deal"):
+                try:
+                    num_cards = int(command.split(" ")[-1])
+                except ValueError:
+                    return "Invalid deal command."
+                for pid, player in self.players.items():
+                    player.draw(self.deck, num_cards)  # Assuming draw method can handle the deck directly
+                    self.updatesForPlayers[pid].append(
                         f"{num_cards} cards dealt to {player.name}"
                     )
                 return "Dealt cards to each player."
 
-            elif command == "quit":
+            elif normalized == "quit":
                 self.game_over = True
                 return "Game over."
 
             return "Unknown command."
+
+    def _complete_round(self) -> None:
+        if not self.table:
+            return
+
+        vit_points = self.table.sum_cards_list("Vit")
+        tit_points = self.table.sum_cards_list("Tit")
+        messages, match_finished = self._apply_round_scoring(vit_points, tit_points)
+        for msg in messages:
+            self.broadcast_players(msg)
+
+        # Reset table state for the next round or match.
+        self.table.cards.clear()
+        self.table.cardOwners.clear()
+        self.table.firstCard = None
+        self.table.team_piles = {'Vit': [], 'Tit': []}
+
+        if match_finished:
+            self.table = None
+            self._reset_round_state()
+            self.state = "end"
+            self.game_over = True
+            self.current_turn = 0
+            return
+
+        self.table = None
+        self.dealer_position = ((self.dealer_position + 1) % 4) or 4
+        self.setup_game()
+
+    def _apply_round_scoring(self, vit_points: int, tit_points: int) -> tuple[list[str], bool]:
+        messages: list[str] = [
+            f"Round totals — Vit: {vit_points}, Tit: {tit_points}."
+        ]
+
+        declarer_team = self.declaration_team
+        if declarer_team is None:
+            messages.append("Round finished without a registered declarer. Redealing.")
+            return messages, False
+
+        defenders_team = "Tit" if declarer_team == "Vit" else "Vit"
+        declarer_points = vit_points if declarer_team == "Vit" else tit_points
+
+        if declarer_points == 60 and vit_points == 60:
+            self.next_game_bonus += 2
+            messages.append(
+                f"The round is a 60-60 draw. Next game value increases by 2 "
+                f"(carryover now {self.next_game_bonus})."
+            )
+            return messages, False
+
+        clubs_trump = self.trump_suit == "C"
+        single_player_sweep = (
+            len(self.trick_winners) == 8
+            and len(set(self.trick_winners)) == 1
+            and self._team_for_player(self.trick_winners[0]) == declarer_team
+        )
+
+        winning_team = declarer_team
+        base_points = 0
+        reason = ""
+
+        if single_player_sweep:
+            winning_team = declarer_team
+            base_points = 24 if clubs_trump else 16
+            reason = "Single player from declarer's side won every trick"
+        elif declarer_points == 120:
+            winning_team = declarer_team
+            base_points = 16 if clubs_trump else 12
+            reason = "Declarer side won every trick"
+        elif declarer_points >= 90:
+            winning_team = declarer_team
+            base_points = 8 if clubs_trump else 4
+            reason = "Declarer side scored 90-120 points"
+        elif declarer_points >= 61:
+            winning_team = declarer_team
+            base_points = 4 if clubs_trump else 2
+            reason = "Declarer side scored 61-89 points"
+        elif declarer_points >= 31:
+            winning_team = defenders_team
+            base_points = 8 if clubs_trump else 4
+            reason = "Defenders held declarers to 31-59 points"
+        else:
+            winning_team = defenders_team
+            if declarer_points == 0:
+                base_points = 16
+                reason = "Defenders won every trick"
+            else:
+                base_points = 16 if clubs_trump else 8
+                reason = "Defenders held declarers under 31 points"
+
+        bonus_applied = self.next_game_bonus
+        total_award = base_points + bonus_applied
+        if bonus_applied:
+            messages.append(f"Including carryover bonus of {bonus_applied} points.")
+        self.next_game_bonus = 0
+
+        previous_score = self.scoreboard[winning_team]
+        self.scoreboard[winning_team] = previous_score - total_award
+
+        messages.append(
+            f"{winning_team} subtracts {total_award} points ({reason})."
+        )
+        messages.append(self._scoreboard_snapshot())
+
+        match_finished = any(score <= 0 for score in self.scoreboard.values())
+        if match_finished:
+            winners = [team for team, score in self.scoreboard.items() if score <= 0]
+            for team in winners:
+                opponent = "Tit" if team == "Vit" else "Vit"
+                messages.append(f"{team} wins the rubber!")
+                if self.scoreboard[opponent] == 24:
+                    messages.append("Double victory — opponents remained on 24.")
+        return messages, match_finished
+
+    def _scoreboard_snapshot(self) -> str:
+        vit = max(self.scoreboard["Vit"], 0)
+        tit = max(self.scoreboard["Tit"], 0)
+        return f"Scoreboard — Vit: {vit}, Tit: {tit}."

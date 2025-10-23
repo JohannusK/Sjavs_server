@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 import time
 
@@ -6,29 +8,45 @@ class Table:
     def __init__(self, trump):
         self.cards: list[Card] = []
         self.cardOwners: list[Player] = []
-        self.firstCard: Card = None
-        self.trump = trump
-        self.team_piles: dict[str, list] = {'vit': [], 'tit': []}
+        self.firstCard: Card | None = None
+        self.trump = trump[0].upper()
+        self.team_piles: dict[str, list[Card]] = {'Vit': [], 'Tit': []}
+
+    @staticmethod
+    def _card_value_rank(card: "Card") -> int:
+        return 14 if card.value == 1 else card.value
 
     def clear_and_reset(self) -> int:
-        # returns player id (1-4)
-        vinnari = max(
-            (x1, x2, x3, x4, x5)
-            for x1, x2, x3, x4, x5 in zip(
-                [-1 if x not in x.TRUMPS else x.TRUMPS.index(x) for x in self.cards],
-                [x.is_trump(self.trump) for x in self.cards],
-                [x.is_suit(self.firstCard, self.trump) for x in self.cards],
-                [14 if x.value==1 else x.value for x in self.cards],
-                [x.id for x in self.cardOwners]
-            )
-        )[-1]
-        team = ['tit', 'vit'][vinnari%2]
+        if not self.cards or not self.cardOwners:
+            raise ValueError("No cards have been played on the table.")
+        if self.firstCard is None:
+            raise ValueError("The first card of the trick is unknown.")
+
+        lead_suit = self.firstCard.suit
+
+        def strength(card: "Card") -> tuple[int, int]:
+            short = card.short_name()
+            if short in Card.TRUMPS:
+                # Higher-ranked permanent trumps should win over all other cards.
+                return 3, len(Card.TRUMPS) - Card.TRUMPS.index(short)
+            if card.is_trump(self.trump):
+                return 2, self._card_value_rank(card)
+            if card.suit == lead_suit:
+                return 1, self._card_value_rank(card)
+            return 0, self._card_value_rank(card)
+
+        winner_index, _ = max(
+            enumerate(self.cards),
+            key=lambda item: (strength(item[1]), -item[0]),
+        )
+        winner = self.cardOwners[winner_index]
+        team = 'Vit' if winner.id in (1, 3) else 'Tit'
         self.team_piles[team].extend(self.cards)
-        self.cards = []
-        self.cardOwners = []
+        self.cards.clear()
+        self.cardOwners.clear()
         self.firstCard = None
 
-        return vinnari
+        return winner.id
 
     def play_first_card(self, card, player) -> str:
         ok_card = take_card(player, card)
@@ -55,9 +73,9 @@ class Table:
             return "Tú hevur ikki kortið"
 
     def sum_cards_list(self, key):
-
-        values = {1:11, 10:10, 11:2, 12:3, 13:4}
-        return sum(values.get(x.value, 0) for x in self.team_piles[key])
+        values = {1: 11, 10: 10, 11: 2, 12: 3, 13: 4}
+        pile = self.team_piles.get(key) or self.team_piles.get(key.title(), [])
+        return sum(values.get(x.value, 0) for x in pile)
 
 
 class Card:
@@ -83,7 +101,7 @@ class Card:
         'Clubs':'C',
     }
 
-    TRUMPS = ['JD', 'JH', 'JS', 'JC', 'QS', 'QC']
+    TRUMPS = ['QC', 'QS', 'JC', 'JS', 'JH', 'JD']
 
     def __init__(self, suit, value):
         self.suit = suit
@@ -99,11 +117,11 @@ class Card:
         return f"{val} of {self.suit}"
 
     def is_trump(self, trump) -> bool:
-        trump = trump[0]
-        return (self.short_name()[1]==trump) or (self.short_name() in self.TRUMPS)
+        trump = trump[0].upper()
+        return (self.short_name()[1] == trump) or (self.short_name() in self.TRUMPS)
 
     def is_suit(self, first_card, trump:str) -> bool:
-        trump = trump[0]
+        trump = trump[0].upper()
         
         if first_card.is_trump(trump):
             return self.is_trump(trump)
@@ -198,7 +216,6 @@ class Player:
                 card = deck.deal()  # May raise a ValueError if the deck is empty
                 self.hand.append(card)
         except ValueError:
-            print("Not enough cards in the deck.")
             return False
         return len(self.hand) == initial_count + num
 
@@ -215,9 +232,9 @@ class Player:
         return None
 
 
-def take_card(player, card) -> Card | int:
+def take_card(player, card) -> Card | None:
     try:
         card_loc = player.hand.index(card)
     except ValueError:
-        return 0
+        return None
     return player.hand.pop(card_loc)

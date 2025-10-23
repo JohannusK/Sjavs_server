@@ -1,0 +1,358 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #111;
+  color: #f3f3f3;
+  min-height: 100vh;
+}
+
+.red {
+  color: #ff5c5c;
+}
+
+main {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+section {
+  background: #1d1d1d;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 360px;
+  max-width: 95vw;
+}
+
+section + section {
+  margin-left: 1rem;
+}
+
+h1,
+h2,
+h3 {
+  margin-top: 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+input {
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #111;
+  color: #f3f3f3;
+}
+
+button {
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background: #3a7afe;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button + button {
+  margin-left: 0.5rem;
+}
+
+button:hover {
+  background: #265ee9;
+}
+
+.hidden {
+  display: none;
+}
+
+#game-section {
+  width: 920px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "header header"
+    "players table"
+    "hand table"
+    "status status"
+    "command command";
+  grid-gap: 1rem;
+}
+
+#game-section header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #151515;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+#game-section .panel {
+  background: #161616;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+#players-panel {
+  grid-area: players;
+}
+
+#table-panel {
+  grid-area: table;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: clamp(560px, 62vw, 720px);
+  margin: 0 auto;
+}
+
+#hand-panel {
+  grid-area: hand;
+}
+
+#status-panel {
+  grid-area: status;
+}
+
+#command-panel {
+  grid-area: command;
+}
+
+#players-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#players-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.6rem;
+  background: #161616;
+  margin-bottom: 0.35rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+#players-list li.me {
+  background: #264065;
+}
+
+#players-list li.turn {
+  text-decoration: underline;
+}
+
+#players-list li .name {
+  flex: 1;
+  font-weight: 600;
+}
+
+#players-list li .status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+#players-list li .status .ping {
+  font-variant-numeric: tabular-nums;
+  color: #ccc;
+}
+
+#players-list li .status .indicator {
+  font-size: 1rem;
+}
+
+#table-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 640px;
+}
+
+.table-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.table-row.middle {
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+  gap: 3rem;
+}
+
+#table-center {
+  flex: 1;
+  text-align: center;
+}
+
+#table-cards {
+  min-height: 36px;
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+#table-cards .card {
+  display: inline-block;
+  padding: 0.45rem 0.7rem;
+  background: #2a2a2a;
+  border-radius: 6px;
+  font-size: 1.9rem;
+  min-width: 2.3rem;
+}
+
+.table-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 33%;
+  min-width: 150px;
+  text-align: center;
+}
+
+.table-slot .name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.table-slot .name.me {
+  color: #6fa8ff;
+}
+
+.table-slot .name.turn {
+  text-decoration: underline;
+}
+
+.table-slot .card {
+  min-height: 32px;
+  font-size: 2.1rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 8px;
+}
+
+.table-slot .card.highlight {
+  background: rgba(255, 215, 0, 0.15);
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+}
+
+#hand-cards,
+#table-cards,
+#action-buttons,
+#card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+#hand-cards .card,
+#card-buttons button {
+  padding: 0.25rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #222;
+  color: #f3f3f3;
+  cursor: pointer;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+#card-buttons button:hover,
+#action-buttons button:hover {
+  background: #2f4a7a;
+}
+
+#action-buttons button {
+  padding: 0.4rem 0.7rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #252525;
+  color: #f3f3f3;
+  cursor: pointer;
+}
+
+#card-actions {
+  margin-top: 0.75rem;
+}
+
+#deal-actions {
+  margin-top: 1rem;
+  background: #141414;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+#deal-actions.hidden {
+  display: none;
+}
+
+.deal-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.deal-controls label {
+  margin: 0;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.deal-controls select {
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #1b1b1b;
+  color: #f3f3f3;
+}
+
+.deal-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#updates-log {
+  background: #101010;
+  border-radius: 6px;
+  padding: 0.75rem;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+#table-panel .subpanel {
+  margin-top: 1rem;
+  background: #141414;
+  border-radius: 6px;
+  padding: 0.75rem;
+  width: clamp(520px, 60vw, 640px);
+}

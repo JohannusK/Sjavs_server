@@ -1,6 +1,12 @@
 import socket
 from threading import Thread
-from game import Game
+
+try:  # pragma: no cover - fallback for direct script execution
+    from .game import Game
+    from .bot_manager import BotManager
+except ImportError:  # pragma: no cover
+    from game import Game  # type: ignore
+    from bot_manager import BotManager  # type: ignore
 
 HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
@@ -18,6 +24,8 @@ def client_thread(conn, addr, game):
 
             # Process received data and update game state
             response = game.process_command(data.decode())
+            if response is None:
+                response = ""
 
             # Send response back to client
             conn.sendall(response.encode())
@@ -39,6 +47,8 @@ def start_server(host='127.0.0.1', port=65432):
 
     # Initialize game logic
     game = Game()
+    bot_manager = BotManager(game)
+    game.attach_bot_manager(bot_manager)
 
     try:
         while True:
@@ -48,6 +58,8 @@ def start_server(host='127.0.0.1', port=65432):
             t = Thread(target=client_thread, args=(conn, addr, game))
             t.start()
     finally:
+        if 'bot_manager' in locals():
+            bot_manager.stop_all()
         server_socket.close()
 
 

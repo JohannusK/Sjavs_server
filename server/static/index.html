@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sjavs Web Client</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="join-section">
+        <h1>Sjavs Table</h1>
+        <form id="join-form">
+          <label>
+            Name
+            <input type="text" id="name-input" placeholder="Your name" />
+          </label>
+          <label>
+            Server
+            <input type="text" id="host-input" placeholder="127.0.0.1" value="127.0.0.1" />
+          </label>
+          <label>
+            Port
+            <input type="number" id="port-input" placeholder="65432" value="8000" />
+          </label>
+          <button type="submit">Join table</button>
+        </form>
+        <p class="hint">After joining, you can type commands (e.g. <code>maxmeld</code>, <code>M 0</code>, <code>show</code>, <code>bots</code>).</p>
+      </section>
+
+      <section id="game-section" class="hidden">
+        <header>
+          <h2 id="player-label"></h2>
+          <div id="scoreboard"></div>
+          <div id="trump-display"></div>
+        </header>
+        <section id="table-panel" class="panel">
+          <h3>Table</h3>
+          <div id="table-layout">
+            <div class="table-row top">
+              <div class="table-slot" data-pos="top">
+                <div class="name"></div>
+                <div class="card"></div>
+              </div>
+            </div>
+            <div class="table-row middle">
+              <div class="table-slot" data-pos="left">
+                <div class="name"></div>
+                <div class="card"></div>
+              </div>
+              <div id="table-center">
+                <div id="table-cards"></div>
+              </div>
+              <div class="table-slot" data-pos="right">
+                <div class="name"></div>
+                <div class="card"></div>
+              </div>
+            </div>
+            <div class="table-row bottom">
+              <div class="table-slot" data-pos="bottom">
+                <div class="name"></div>
+                <div class="card"></div>
+              </div>
+            </div>
+          </div>
+          <div id="card-actions">
+            <h3>Play Card</h3>
+            <div id="card-buttons"></div>
+          </div>
+          <div id="deal-actions" class="hidden">
+            <h3>Deal Options</h3>
+            <div class="deal-controls">
+              <label>
+                Split position
+                <select id="split-select"></select>
+              </label>
+              <div class="deal-buttons">
+                <button type="button" id="split-button">Split</button>
+                <button type="button" id="banka-button">Banka</button>
+              </div>
+            </div>
+          </div>
+          <div id="players-panel" class="panel subpanel">
+            <h3>Players</h3>
+            <ul id="players-list"></ul>
+          </div>
+        </section>
+        <section id="status-panel" class="panel">
+          <h3>Latest Updates</h3>
+          <pre id="updates-log"></pre>
+        </section>
+        <section id="command-panel" class="panel">
+          <div id="actions">
+            <h3>Quick Actions</h3>
+            <div id="action-buttons"></div>
+          </div>
+          <form id="command-form">
+            <input type="text" id="command-input" placeholder="Enter command" autocomplete="off" />
+            <button type="submit">Send</button>
+            <button type="button" id="bots-button">Fill with bots</button>
+          </form>
+          <p class="hint">Need cards? Try <code>show</code>. Poll updates with <code>GU</code> automatically.</p>
+        </section>
+      </section>
+    </main>
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>
