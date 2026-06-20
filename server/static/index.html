@@ -2,71 +2,136 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sjavs Web Client</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
+    <div id="celebration-overlay" class="hidden" aria-hidden="true"></div>
     <main id="app">
       <section id="join-section">
-        <h1>Sjavs Table</h1>
+        <div id="welcome-stage" aria-hidden="true">
+          <div class="hero-card card-a">🂫</div>
+          <div class="hero-card card-b">🃋</div>
+          <div class="hero-card card-c">🂽</div>
+          <div class="hero-card card-d">🃑</div>
+          <div class="hero-chip chip-a"></div>
+          <div class="hero-chip chip-b"></div>
+        </div>
+        <div id="welcome-copy">
+          <p class="eyebrow">Faroese Card Table</p>
+          <h1>Sjavs Lobby</h1>
+          <p class="hint">Create a table, browse open games, or jump into a full room and wait in the lobby before the host starts the round.</p>
+        </div>
         <form id="join-form">
           <label>
             Name
             <input type="text" id="name-input" placeholder="Your name" />
           </label>
-          <label>
-            Server
-            <input type="text" id="host-input" placeholder="127.0.0.1" value="127.0.0.1" />
-          </label>
-          <label>
-            Port
-            <input type="number" id="port-input" placeholder="8000" value="8000" />
-          </label>
-          <button type="submit">Join table</button>
+          <div class="join-grid">
+            <label>
+              Server
+              <input type="text" id="host-input" placeholder="127.0.0.1" value="127.0.0.1" />
+            </label>
+            <label>
+              Port
+              <input type="number" id="port-input" placeholder="8000" value="8000" />
+            </label>
+          </div>
+          <div id="browser-actions">
+            <label>
+              New Table
+              <input type="text" id="lobby-name-input" placeholder="Table name" />
+            </label>
+            <button type="submit">Create Table</button>
+          </div>
         </form>
-        <p class="hint">After joining, you can type commands (e.g. <code>maxmeld</code>, <code>M 0</code>, <code>show</code>, <code>bots</code>).</p>
+        <section id="browser-panel">
+          <div id="browser-header">
+            <h3>Open Tables</h3>
+            <button type="button" id="refresh-lobbies-button">Refresh</button>
+          </div>
+          <div id="lobby-browser-list"></div>
+        </section>
+      </section>
+
+      <section id="lobby-section" class="hidden">
+        <header id="lobby-header">
+          <div>
+            <p class="eyebrow">Waiting Room</p>
+            <h2 id="lobby-title">Lobby</h2>
+            <p id="lobby-subtitle" class="hint"></p>
+          </div>
+          <div id="lobby-actions">
+            <button type="button" id="lobby-leave-button">Leave Room</button>
+            <label id="lobby-bot-level">
+              <span>Bot Skill</span>
+              <select id="lobby-bot-select">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard" selected>Hard</option>
+              </select>
+            </label>
+            <button type="button" id="lobby-bots-button">Fill With Bots</button>
+            <button type="button" id="lobby-start-button">Start Game</button>
+          </div>
+        </header>
+        <div id="lobby-seats"></div>
+        <div id="lobby-chat">
+          <h3>Lobby Chat</h3>
+          <pre id="lobby-updates"></pre>
+          <form id="lobby-chat-form">
+            <input type="text" id="lobby-chat-input" placeholder="Send a message" autocomplete="off" />
+            <button type="submit">Send</button>
+          </form>
+        </div>
       </section>
 
       <section id="game-section" class="hidden">
-        <header>
-          <h2 id="player-label"></h2>
+        <header id="game-header">
+          <div>
+            <p class="eyebrow">Sjavs Table</p>
+            <h2 id="player-label"></h2>
+          </div>
           <div id="scoreboard"></div>
-          <div id="trump-display"></div>
+          <div id="game-header-actions">
+            <div id="trump-display"></div>
+            <button type="button" id="game-exit-button" class="hidden">Back To Lobby</button>
+          </div>
         </header>
+
         <section id="table-panel" class="panel">
-          <h3>Table</h3>
+          <div id="table-toolbar">
+            <div id="round-score"></div>
+          </div>
           <div id="table-layout">
             <div class="table-row top">
               <div class="table-slot" data-pos="top">
                 <div class="name"></div>
-                <div class="card"></div>
               </div>
             </div>
             <div class="table-row middle">
               <div class="table-slot" data-pos="left">
                 <div class="name"></div>
-                <div class="card"></div>
               </div>
               <div id="table-center">
                 <div id="table-cards"></div>
               </div>
               <div class="table-slot" data-pos="right">
                 <div class="name"></div>
-                <div class="card"></div>
               </div>
             </div>
             <div class="table-row bottom">
               <div class="table-slot" data-pos="bottom">
                 <div class="name"></div>
-                <div class="card"></div>
               </div>
             </div>
+            <div id="played-cards-layer" aria-live="polite"></div>
           </div>
           <div id="card-actions">
-            <h3>Play Card</h3>
             <div id="card-buttons"></div>
           </div>
-          <div id="meld-actions" class="panel subpanel hidden">
+          <div id="meld-actions" class="subpanel hidden">
             <h3>Declaration</h3>
             <div id="meld-info"></div>
             <div id="meld-buttons"></div>
@@ -84,26 +149,36 @@
               </div>
             </div>
           </div>
-          <div id="players-panel" class="panel subpanel">
-            <h3>Players</h3>
-            <ul id="players-list"></ul>
-          </div>
         </section>
+
         <section id="status-panel" class="panel">
           <h3>Latest Updates</h3>
           <pre id="updates-log"></pre>
         </section>
+
         <section id="command-panel" class="panel">
-          <div id="actions">
-            <h3>Quick Actions</h3>
-            <div id="action-buttons"></div>
-          </div>
           <form id="command-form">
             <input type="text" id="command-input" placeholder="Enter command" autocomplete="off" />
             <button type="submit">Send</button>
-            <button type="button" id="bots-button">Fill with bots</button>
           </form>
-          <p class="hint">Need cards? Try <code>show</code>. Poll updates with <code>GU</code> automatically.</p>
+        </section>
+
+        <section id="history-panel" class="panel">
+          <h3>Round Sheet</h3>
+          <div id="history-table-wrap">
+            <table id="history-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Vit</th>
+                  <th>Tit</th>
+                  <th>Game Vit</th>
+                  <th>Game Tit</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
         </section>
       </section>
     </main>

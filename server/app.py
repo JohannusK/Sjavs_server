@@ -34,7 +34,7 @@ def client_thread(conn, addr, game):
         conn.close()
 
 
-def start_server(host='127.0.0.1', port=65432):
+def start_server(host='127.0.0.1', port=65432, game_instance=None, bot_manager=None):
     """
     Initialize the server, bind it to a host and port, and listen for incoming connections.
     """
@@ -45,10 +45,24 @@ def start_server(host='127.0.0.1', port=65432):
 
     print(f"Server started on {host}:{port} waiting for connections...")
 
-    # Initialize game logic
-    game = Game()
-    bot_manager = BotManager(game)
-    game.attach_bot_manager(bot_manager)
+    created_bot_manager = False
+
+    if game_instance is None:
+        game = Game()
+        bot_manager = BotManager(game)
+        game.attach_bot_manager(bot_manager)
+        created_bot_manager = True
+    else:
+        game = game_instance
+        if bot_manager is None:
+            if game.bot_manager is None:
+                bot_manager = BotManager(game)
+                game.attach_bot_manager(bot_manager)
+                created_bot_manager = True
+            else:
+                bot_manager = game.bot_manager
+        else:
+            game.attach_bot_manager(bot_manager)
 
     try:
         while True:
@@ -58,7 +72,7 @@ def start_server(host='127.0.0.1', port=65432):
             t = Thread(target=client_thread, args=(conn, addr, game))
             t.start()
     finally:
-        if 'bot_manager' in locals():
+        if created_bot_manager and bot_manager is not None:
             bot_manager.stop_all()
         server_socket.close()
 

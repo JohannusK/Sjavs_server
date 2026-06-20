@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections import defaultdict
 from typing import DefaultDict, TYPE_CHECKING
@@ -19,6 +20,7 @@ class Game:
         self.teamp: dict[str, list[int]] = {"Vit": [1, 3], "Tit": [2, 4]}
         self.STATES: list[str] = [
             "init",
+            "lobby",
             "deal",
             "declaration",
             "first_card",
@@ -38,6 +40,7 @@ class Game:
         self.declaration_count: int = 1
         self.declaration_team: str | None = None
         self.scoreboard: dict[str, int] = {"Vit": 24, "Tit": 24}
+        self.round_history: list[dict[str, int]] = []
         self.next_game_bonus: int = 0
         self.trick_winners: list[int] = []
         self.bot_manager: BotManager | None = None
@@ -45,7 +48,59 @@ class Game:
         self.highlight_until: float = 0.0
         self.last_trick_cards: list[tuple[int, str]] = []
         self.last_trick_expire: float = 0.0
+        self.last_round_winner_team: str | None = None
+        self.last_round_result_key: int = 0
+        self.last_round_result_kind: str | None = None
         self.last_reset_message: str | None = None
+
+    def _begin_play_with_trump(self) -> str:
+        if self.trump_suit is None:
+            return "Invalid suit"
+        self.broadcast_players(f"The current trump is {self.trump_suit}")
+        self.table = Table(self.trump_suit)
+        self.state = "first_card"
+        self.current_turn = ((self.dealer_position + 1) % 4) or 4
+        self.updatesForPlayers[self.current_turn].append("Play a card")
+        return " "
+
+    def _complete_declaration_phase(self) -> str:
+        if self.trump_owner is None:
+            self.broadcast_players("No player declared trump. Redealing.")
+            self._redeal_after_failed_declaration()
+            return " "
+        self.current_turn = self.trump_owner.id
+        self.broadcast_players(
+            f"Declarations complete. {self.trump_owner.name} has the highest declaration."
+        )
+        if self.trump_suit is not None:
+            return self._begin_play_with_trump()
+        self.updatesForPlayers[self.trump_owner.id].append(
+            "What suit is your declaration?"
+        )
+        return " "
+
+    def _help_text(self) -> str:
+        lines = [
+            f"State: {self.state}",
+            "General: help, gu, show, list players, say <message>",
+        ]
+
+        if self.state in {"lobby", "end"}:
+            lines.append("Lobby: start, bots [count] [easy|medium|hard]")
+        elif self.state == "deal":
+            lines.append("Deal: split <10-22>, banka")
+        elif self.state == "declaration":
+            lines.append("Declaration: maxmeld, M 0, M <5-8>, <0|5-8>, <5-8> Better")
+            if self.trump_owner is not None and self.trump_suit is None:
+                lines.append("Trump Suit: S <C|D|H|S>")
+        elif self.state in {"first_card", "play"}:
+            lines.append("Play: P <card>")
+
+        if self.current_turn and self.current_turn in self.players:
+            lines.append(f"Current turn: P{self.current_turn} ({self.players[self.current_turn].name})")
+
+        lines.append("Examples: P 7C, M 5, 5 Better, S C, split 16, say hello")
+        return "\n".join(lines)
 
     def handle_trump_declaration(self, command: str, player_id: int) -> str:
         parts = command.split()
@@ -93,18 +148,7 @@ class Game:
         self.current_turn = (self.current_turn % self.nPlayers) + 1
 
         if self.declaration_count > self.nPlayers:
-            if self.trump_owner is None:
-                self.broadcast_players("No player declared trump. Redealing.")
-                self._redeal_after_failed_declaration()
-                return " "
-            self.current_turn = self.trump_owner.id
-            self.broadcast_players(
-                f"Declarations complete. {self.trump_owner.name} has the highest declaration."
-            )
-            self.updatesForPlayers[self.trump_owner.id].append(
-                "What suit is your declaration?"
-            )
-            return " "
+            return self._complete_declaration_phase()
         self.updatesForPlayers[self.current_turn].append(
             f"{self.players[self.current_turn].name}'s turn to declare."
         )
@@ -133,6 +177,8 @@ class Game:
         self.trick_winners = []
         self.last_trick_winner = None
         self.highlight_until = 0.0
+        self.last_trick_cards = []
+        self.last_trick_expire = 0.0
 
     @staticmethod
     def _team_for_player(player_id: int) -> str:
@@ -174,7 +220,13 @@ class Game:
         self.trick_winners = []
         self.last_trick_winner = None
         self.highlight_until = 0.0
+        self.last_trick_cards = []
+        self.last_trick_expire = 0.0
+        self.last_round_winner_team = None
+        self.last_round_result_key = 0
+        self.last_round_result_kind = None
         self.scoreboard = {"Vit": 24, "Tit": 24}
+        self.round_history = []
         self.next_game_bonus = 0
         self.last_reset_message = message
 
@@ -189,6 +241,8 @@ class Game:
         self.ask_for_split_or_banka(((self.dealer_position - 1) % 4) or 4)
 
     def setup_game(self) -> None:
+        if self.game_over:
+            self.round_history = []
         self.deck = Deck()
         self.deck.shuffle()
         self.table = None
@@ -248,6 +302,43 @@ class Game:
     def broadcast_players(self, msg: str) -> None:
         for player in self.players.values():
             self.updatesForPlayers[player.id].append(msg)
+
+    def remove_player(self, player_id: int) -> dict[int, int]:
+        if self.state not in {"init", "lobby", "end"}:
+            raise ValueError("Players can only leave from the lobby or after the game ends.")
+        if player_id not in self.players:
+            raise ValueError("Unknown player.")
+
+        was_end_state = self.state == "end"
+        departing_name = self.players[player_id].name
+        remaining_players = [
+            player
+            for pid, player in sorted(self.players.items())
+            if pid != player_id
+        ]
+        old_updates = {
+            pid: list(messages)
+            for pid, messages in self.updatesForPlayers.items()
+            if pid != player_id
+        }
+
+        self.players = {}
+        self.updatesForPlayers = defaultdict(list)
+        seat_map: dict[int, int] = {}
+
+        for new_id, player in enumerate(remaining_players, start=1):
+            old_id = player.id
+            player.id = new_id
+            self.players[new_id] = player
+            self.updatesForPlayers[new_id].extend(old_updates.get(old_id, []))
+            seat_map[old_id] = new_id
+
+        self.nPlayers = len(self.players)
+        self.current_turn = 0
+        self.state = "end" if self.players and was_end_state else ("lobby" if self.players else "init")
+        if self.players:
+            self.broadcast_players(f"{departing_name} left the table.")
+        return seat_map
 
     def process_command(self, command: str) -> str:
         """
@@ -337,8 +428,8 @@ class Game:
             self.players[self.nPlayers] = Player(name, self.nPlayers)
             # Touch the defaultdict so the list exists for subsequent updates.
             self.updatesForPlayers[self.nPlayers]
-            if self.nPlayers == 4:
-                self.setup_game()
+            self.state = "lobby"
+            self.broadcast_players(f"{name} joined the lobby.")
             self.last_reset_message = None
             return f"P{self.nPlayers}"
 
@@ -358,14 +449,34 @@ class Game:
 
             normalized = command.lower()
 
+            if normalized == "help":
+                return self._help_text()
+
             if normalized == "bots" or normalized.startswith("bots "):
                 if self.bot_manager is None:
                     return "Bot manager unavailable."
                 parts = command.split()
                 requested = None
-                if len(parts) > 1 and parts[1].isdigit():
-                    requested = int(parts[1])
-                return self.bot_manager.ensure_bots(requested)
+                difficulty = None
+                for part in parts[1:]:
+                    if part.isdigit():
+                        requested = int(part)
+                    else:
+                        difficulty = part.lower()
+                if difficulty is None:
+                    return self.bot_manager.ensure_bots(requested)
+                return self.bot_manager.ensure_bots(requested, difficulty)
+
+            if normalized == "start":
+                if self.state != "lobby":
+                    return "Game already in progress."
+                if player_id != 1:
+                    return "Only player 1 can start the game."
+                if self.nPlayers < 4:
+                    return "Need four players to start."
+                self.broadcast_players("The lobby is full. Starting game.")
+                self.setup_game()
+                return " "
 
             if normalized.startswith("list players"):
                 player_list = "".join(
@@ -393,6 +504,16 @@ class Game:
                     suit_hint = self.players[self.trump_owner.id].find_highest_trump_declaration()[1]
                     self.process_command(f"P{self.trump_owner.id} S {suit_hint}")
 
+            declaration_match = (
+                re.fullmatch(r"(?i)(0|[5-8])(?:\s+better)?", command)
+                if self.state == "declaration"
+                else None
+            )
+            if declaration_match:
+                return self.handle_trump_declaration(
+                    f"M {declaration_match.group(1)}",
+                    player_id,
+                )
             elif command.startswith("M "):  # Trump declaration starts with 'M '
                 return self.handle_trump_declaration(command, player_id)
             elif command.startswith('IPython'):
@@ -409,12 +530,7 @@ class Game:
                     and self.current_turn == player_id
                 ):
                     self.trump_suit = suit
-                    self.broadcast_players(f"The current trump is {suit}")
-                    self.table = Table(suit)
-                    self.state = "first_card"
-                    self.current_turn = ((self.dealer_position + 1) % 4) or 4
-                    self.updatesForPlayers[self.current_turn].append("Play a card")
-                    return " "
+                    return self._begin_play_with_trump()
                 return "Invalid suit"
             elif command.upper().startswith("P "):
                 # Plays a card
@@ -450,7 +566,7 @@ class Game:
                             ]
                             winner = self.table.clear_and_reset()
                             self.last_trick_cards = trick_snapshot
-                            self.last_trick_expire = time.time() + 2.0
+                            self.last_trick_expire = time.time() + 5.0
                             self.trick_winners.append(winner)
                             self.current_turn = winner
                             self.broadcast_players(
@@ -530,6 +646,15 @@ class Game:
         vit_points = self.table.sum_cards_list("Vit")
         tit_points = self.table.sum_cards_list("Tit")
         messages, match_finished = self._apply_round_scoring(vit_points, tit_points)
+        self.round_history.append(
+            {
+                "round": len(self.round_history) + 1,
+                "vit": vit_points,
+                "tit": tit_points,
+                "game_vit": max(self.scoreboard["Vit"], 0),
+                "game_tit": max(self.scoreboard["Tit"], 0),
+            }
+        )
         for msg in messages:
             self.broadcast_players(msg)
 
@@ -568,6 +693,9 @@ class Game:
 
         if declarer_points == 60 and vit_points == 60:
             self.next_game_bonus += 2
+            self.last_round_winner_team = None
+            self.last_round_result_key += 1
+            self.last_round_result_kind = "draw_60"
             messages.append(
                 f"The round is a 60-60 draw. Next game value increases by 2 "
                 f"(carryover now {self.next_game_bonus})."
@@ -622,6 +750,14 @@ class Game:
 
         previous_score = self.scoreboard[winning_team]
         self.scoreboard[winning_team] = previous_score - total_award
+        self.last_round_winner_team = winning_team
+        self.last_round_result_key += 1
+        if declarer_points == 120:
+            self.last_round_result_kind = "declarer_sweep"
+        elif declarer_points == 0 and winning_team == defenders_team:
+            self.last_round_result_kind = "defender_sweep"
+        else:
+            self.last_round_result_kind = "normal"
 
         messages.append(
             f"{winning_team} subtracts {total_award} points ({reason})."

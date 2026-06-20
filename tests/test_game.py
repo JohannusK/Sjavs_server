@@ -56,7 +56,10 @@ def test_deal_cards_requires_deal_state():
 def test_handle_trump_declaration_when_everyone_passes_restarts_round():
     game = Game()
     register_four_players(game)
-    # Initial prompt should be to player 4 for split/banka.
+    # Four joins now enter the lobby; player 1 starts the game.
+    assert game.state == "lobby"
+    start_reply = game.process_command("P1 start")
+    assert start_reply.strip() == ""
     assert game.state == "deal"
     # Complete the deal so we can reach declaration stage.
     response = game.process_command("P4 split 16")
@@ -194,3 +197,48 @@ def test_bots_command_forwards_to_manager():
     result = game.process_command("P1 bots 2")
     assert result == "Bots added"
     assert dummy.calls == [None, 2]
+
+
+def test_help_lists_commands_for_current_state():
+    game = Game()
+    register_four_players(game)
+
+    lobby_help = game.process_command("P1 help")
+    assert "State: lobby" in lobby_help
+    assert "General: help, gu, show, list players, say <message>" in lobby_help
+    assert "Lobby: start, bots [count] [easy|medium|hard]" in lobby_help
+
+    game.process_command("P1 start")
+    game.process_command("P4 banka")
+    declaration_help = game.process_command("P1 help")
+    assert "State: declaration" in declaration_help
+    assert "Declaration: maxmeld, M 0, M <5-8>, <0|5-8>, <5-8> Better" in declaration_help
+    assert "Examples: P 7C, M 5, 5 Better, S C, split 16, say hello" in declaration_help
+
+
+def test_better_declaration_skips_suit_prompt_when_clubs_win_tiebreak():
+    game = Game()
+    register_four_players(game)
+    game.process_command("P1 start")
+    game.process_command("P4 banka")
+
+    game.players[1].hand = [make_card(code) for code in ("7C", "8C", "9C", "QC", "KD", "7S", "QS", "JS")]
+    game.players[2].hand = [make_card(code) for code in ("7D", "8D", "9D", "TD", "KD", "AD", "7H", "8H")]
+    game.players[3].hand = [make_card(code) for code in ("7H", "8H", "9H", "TH", "KH", "AH", "7S", "8S")]
+    game.players[4].hand = [make_card(code) for code in ("7S", "8S", "9S", "TS", "KS", "AS", "7D", "8D")]
+
+    assert game.state == "declaration"
+    assert game.current_turn == 2
+
+    assert game.process_command("P2 M 0").strip() == ""
+    assert game.process_command("P3 M 5").strip() == ""
+    assert game.process_command("P4 M 0").strip() == ""
+    assert game.process_command("P1 5 Better").strip() == ""
+
+    assert game.trump_owner == game.players[1]
+    assert game.trump_suit == "C"
+    assert game.state == "first_card"
+    assert game.table is not None
+    assert game.table.trump == "C"
+    updates = "\n".join(game.updatesForPlayers[1])
+    assert "What suit is your declaration?" not in updates

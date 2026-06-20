@@ -11,6 +11,8 @@ class Table:
         self.firstCard: Card | None = None
         self.trump = trump[0].upper()
         self.team_piles: dict[str, list[Card]] = {'Vit': [], 'Tit': []}
+        self.last_winning_card: Card | None = None
+        self.last_winning_owner_id: int | None = None
 
     @staticmethod
     def _card_value_rank(card: "Card") -> int:
@@ -40,6 +42,9 @@ class Table:
             key=lambda item: (strength(item[1]), -item[0]),
         )
         winner = self.cardOwners[winner_index]
+        winning_card = self.cards[winner_index]
+        self.last_winning_card = winning_card
+        self.last_winning_owner_id = winner.id
         team = 'Vit' if winner.id in (1, 3) else 'Tit'
         self.team_piles[team].extend(self.cards)
         self.cards.clear()
